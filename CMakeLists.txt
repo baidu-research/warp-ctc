@@ -18,12 +18,15 @@ ENDIF()
 include_directories(include)
 
 FIND_PACKAGE(CUDA 6.5)
-MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
+FIND_PACKAGE(Torch)
 
-option(WITH_GPU     "compile warp-ctc with cuda."   ${CUDA_FOUND})
-option(WITH_OMP     "compile warp-ctc with openmp." ON)
-option(WITH_TORCH   "compile warp-ctc with torch."  OFF)
-option(BUILD_SHARED "Build shared libraries." ON)
+MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
+MESSAGE(STATUS "Torch found ${Torch_DIR}")
+
+option(WITH_GPU     "compile warp-ctc with CUDA."    ${CUDA_FOUND})
+option(WITH_TORCH   "compile warp-ctc with Torch."   ${Torch_FOUND})
+option(WITH_OMP     "compile warp-ctc with OpenMP."  ON)
+option(BUILD_SHARED "build warp-ctc shared library." ON)
 
 if(BUILD_SHARED)
     set(WARPCTC_SHARED "SHARED")
@@ -47,12 +50,6 @@ IF(NOT APPLE)
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcompiler -fopenmp")
 ENDIF()
 
-IF(WITH_TORCH)
-    FIND_PACKAGE(Torch)
-endif(WITH_TORCH)
-
-MESSAGE(STATUS "Torch found ${Torch_DIR}")
-
 IF (APPLE)
     EXEC_PROGRAM(uname ARGS -v  OUTPUT_VARIABLE DARWIN_VERSION)
     STRING(REGEX MATCH "[0-9]+" DARWIN_VERSION ${DARWIN_VERSION})
@@ -75,7 +72,7 @@ IF (WITH_GPU)
     MESSAGE(STATUS "Building shared library with GPU support")
 
     CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
-    IF (!Torch_FOUND) 
+    IF (!WITH_TORCH) 
         TARGET_LINK_LIBRARIES(warpctc ${CUDA_curand_LIBRARY})
     ENDIF()
 
@@ -93,7 +90,7 @@ IF (WITH_GPU)
 
     INSTALL(FILES include/ctc.h DESTINATION "include")
 
-    IF (Torch_FOUND)
+    IF (WITH_TORCH)
         MESSAGE(STATUS "Building Torch Bindings with GPU support")
         INCLUDE_DIRECTORIES(${CUDA_INCLUDE_DIRS} "${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc")
         INCLUDE_DIRECTORIES(${Torch_INSTALL_INCLUDE} ${Torch_INSTALL_INCLUDE}/TH ${Torch_INSTALL_INCLUDE}/THC)
@@ -137,7 +134,7 @@ ELSE()
 
     INSTALL(FILES include/ctc.h DESTINATION "include")
 
-    IF (Torch_FOUND)
+    IF (WITH_TORCH)
         MESSAGE(STATUS "Building Torch Bindings with no GPU support")
         add_definitions(-DTORCH_NOGPU)
         INCLUDE_DIRECTORIES(${Torch_INSTALL_INCLUDE} ${Torch_INSTALL_INCLUDE}/TH)
