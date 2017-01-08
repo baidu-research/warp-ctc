@@ -20,9 +20,16 @@ include_directories(include)
 FIND_PACKAGE(CUDA 6.5)
 MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
 
-option(WITH_GPU "compile warp-ctc with cuda." ${CUDA_FOUND})
-option(WITH_OMP "compile warp-ctc with openmp." ON)
-option(WITH_TORCH "compile warp-ctc with torch." OFF)
+option(WITH_GPU     "compile warp-ctc with cuda."   ${CUDA_FOUND})
+option(WITH_OMP     "compile warp-ctc with openmp." ON)
+option(WITH_TORCH   "compile warp-ctc with torch."  OFF)
+option(BUILD_SHARED "Build shared libraries." ON)
+
+if(BUILD_SHARED)
+    set(WARPCTC_SHARED "SHARED")
+else(BUILD_SHARED)
+    set(WARPCTC_SHARED "STATIC")
+endif(BUILD_SHARED)
 
 if(NOT WITH_OMP)
     add_definitions(-DCTC_DISABLE_OMP)
@@ -67,7 +74,7 @@ IF (WITH_GPU)
 
     MESSAGE(STATUS "Building shared library with GPU support")
 
-    CUDA_ADD_LIBRARY(warpctc SHARED src/ctc_entrypoint.cu src/reduce.cu)
+    CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
     IF (!Torch_FOUND) 
         TARGET_LINK_LIBRARIES(warpctc ${CUDA_curand_LIBRARY})
     ENDIF()
@@ -117,7 +124,7 @@ ELSE()
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2")
     ENDIF()
 
-    ADD_LIBRARY(warpctc SHARED src/ctc_entrypoint.cpp)
+    ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cpp)
 
     add_executable(test_cpu tests/test_cpu.cpp )
     TARGET_LINK_LIBRARIES(test_cpu warpctc)
