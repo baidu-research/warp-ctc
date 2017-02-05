@@ -1,3 +1,5 @@
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+
 IF (APPLE)
     cmake_minimum_required(VERSION 3.4)
 ELSE()
@@ -65,7 +67,7 @@ IF (WITH_GPU)
     MESSAGE(STATUS "Building shared library with GPU support")
 
     CUDA_ADD_LIBRARY(warpctc SHARED src/ctc_entrypoint.cu src/reduce.cu)
-    IF (!Torch_FOUND) 
+    IF (!Torch_FOUND)
         TARGET_LINK_LIBRARIES(warpctc ${CUDA_curand_LIBRARY})
     ENDIF()
 
@@ -151,5 +153,3 @@ ELSE()
     ENDIF()
 
 ENDIF()
-
-
