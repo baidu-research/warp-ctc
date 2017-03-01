@@ -1,4 +1,6 @@
 ![Baidu Logo](/doc/baidu-research-logo-small.png)
+#Hello CTC
+Vie
 
 [In Chinese 中文版](README.zh_cn.md)
 
