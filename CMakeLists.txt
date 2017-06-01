@@ -18,10 +18,22 @@ ENDIF()
 include_directories(include)
 
 FIND_PACKAGE(CUDA 6.5)
-MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
+FIND_PACKAGE(Torch)
 
-option(WITH_GPU "compile warp-ctc with cuda." ${CUDA_FOUND})
-option(WITH_OMP "compile warp-ctc with openmp." ON)
+MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
+MESSAGE(STATUS "Torch found ${Torch_DIR}")
+
+option(WITH_GPU     "compile warp-ctc with CUDA."     ${CUDA_FOUND})
+option(WITH_TORCH   "compile warp-ctc with Torch."    ${Torch_FOUND})
+option(WITH_OMP     "compile warp-ctc with OpenMP."   ON)
+option(BUILD_TESTS  "build warp-ctc unit tests."      ON)
+option(BUILD_SHARED "build warp-ctc shared library."  ON)
+
+if(BUILD_SHARED)
+    set(WARPCTC_SHARED "SHARED")
+else(BUILD_SHARED)
+    set(WARPCTC_SHARED "STATIC")
+endif(BUILD_SHARED)
 
 if(NOT WITH_OMP)
     add_definitions(-DCTC_DISABLE_OMP)
@@ -34,20 +46,16 @@ set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_35,code=sm_35")
 set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_50,code=sm_50")
 set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_52,code=sm_52")
 
-IF (CUDA_VERSION GREATER 7.6)
+IF (CUDA_VERSION VERSION_GREATER "7.6")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_60,code=sm_60")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_61,code=sm_61")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_62,code=sm_62")
 ENDIF()
 
-if (NOT APPLE)
+IF(NOT APPLE)
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --std=c++11")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcompiler -fopenmp")
 ENDIF()
-
-FIND_PACKAGE(Torch)
-
-MESSAGE(STATUS "Torch found ${Torch_DIR}")
 
 IF (APPLE)
     EXEC_PROGRAM(uname ARGS -v  OUTPUT_VARIABLE DARWIN_VERSION)
@@ -70,17 +78,19 @@ IF (WITH_GPU)
 
     MESSAGE(STATUS "Building shared library with GPU support")
 
-    CUDA_ADD_LIBRARY(warpctc SHARED src/ctc_entrypoint.cu src/reduce.cu)
-    IF (!Torch_FOUND) 
+    CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
+    IF (!WITH_TORCH) 
         TARGET_LINK_LIBRARIES(warpctc ${CUDA_curand_LIBRARY})
     ENDIF()
 
-    add_executable(test_cpu tests/test_cpu.cpp )
-    TARGET_LINK_LIBRARIES(test_cpu warpctc)
-    SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
+    if(BUILD_TESTS)
+        add_executable(test_cpu tests/test_cpu.cpp )
+        TARGET_LINK_LIBRARIES(test_cpu warpctc)
+        SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
 
-    cuda_add_executable(test_gpu tests/test_gpu.cu)
-    TARGET_LINK_LIBRARIES(test_gpu warpctc ${CUDA_curand_LIBRARY})
+        cuda_add_executable(test_gpu tests/test_gpu.cu)
+        TARGET_LINK_LIBRARIES(test_gpu warpctc ${CUDA_curand_LIBRARY})
+    endif(BUILD_TESTS)
 
     INSTALL(TARGETS warpctc
             RUNTIME DESTINATION "bin"
@@ -89,7 +99,7 @@ IF (WITH_GPU)
 
     INSTALL(FILES include/ctc.h DESTINATION "include")
 
-    IF (Torch_FOUND)
+    IF (WITH_TORCH)
         MESSAGE(STATUS "Building Torch Bindings with GPU support")
         INCLUDE_DIRECTORIES(${CUDA_INCLUDE_DIRS} "${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc")
         INCLUDE_DIRECTORIES(${Torch_INSTALL_INCLUDE} ${Torch_INSTALL_INCLUDE}/TH ${Torch_INSTALL_INCLUDE}/THC)
@@ -105,13 +115,11 @@ IF (WITH_GPU)
 
         ADD_TORCH_PACKAGE(warp_ctc "${src}" "${luasrc}")
         IF (APPLE)
-
             TARGET_LINK_LIBRARIES(warp_ctc warpctc luajit luaT THC TH ${CUDA_curand_LIBRARY})
         ELSE()
             TARGET_LINK_LIBRARIES(warp_ctc warpctc luajit luaT THC TH ${CUDA_curand_LIBRARY} gomp)
         ENDIF()
     ENDIF()
-
 
 ELSE()
     MESSAGE(STATUS "Building shared library with no GPU support")
@@ -120,11 +128,13 @@ ELSE()
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2")
     ENDIF()
 
-    ADD_LIBRARY(warpctc SHARED src/ctc_entrypoint.cpp)
+    ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cpp)
 
-    add_executable(test_cpu tests/test_cpu.cpp )
-    TARGET_LINK_LIBRARIES(test_cpu warpctc)
-    SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
+    if(BUILD_TESTS)
+        add_executable(test_cpu tests/test_cpu.cpp )
+        TARGET_LINK_LIBRARIES(test_cpu warpctc)
+        SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
+    endif(BUILD_TESTS)
 
     INSTALL(TARGETS warpctc
             RUNTIME DESTINATION "bin"
@@ -133,7 +143,7 @@ ELSE()
 
     INSTALL(FILES include/ctc.h DESTINATION "include")
 
-    IF (Torch_FOUND)
+    IF (WITH_TORCH)
         MESSAGE(STATUS "Building Torch Bindings with no GPU support")
         add_definitions(-DTORCH_NOGPU)
         INCLUDE_DIRECTORIES(${Torch_INSTALL_INCLUDE} ${Torch_INSTALL_INCLUDE}/TH)
