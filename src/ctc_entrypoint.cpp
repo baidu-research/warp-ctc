@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 
+#define CTC_API __declspec(dllexport)
 #include <ctc.h>
 
 #include "detail/cpu_ctc.h"
