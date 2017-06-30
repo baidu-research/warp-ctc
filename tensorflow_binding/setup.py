@@ -56,7 +56,7 @@ tf_includes = [tf_include, tf_src_dir]
 warp_ctc_includes = [os.path.join(root_path, '../include')]
 include_dirs = tf_includes + warp_ctc_includes
 
-extra_compile_args = ['-std=c++11', '-fPIC']
+extra_compile_args = ['-std=c++11', '-fPIC', '-D_GLIBCXX_USE_CXX11_ABI=0']
 # current tensorflow code triggers return type errors, silence those for now
 extra_compile_args += ['-Wno-return-type']
 
