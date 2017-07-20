@@ -46,7 +46,6 @@ ctcStatus_t compute_ctc_loss(const float* const activations,
                              float *costs,
                              void *workspace,
                              ctcOptions options) {
-
     if (activations == nullptr ||
         flat_labels == nullptr ||
         label_lengths == nullptr ||
