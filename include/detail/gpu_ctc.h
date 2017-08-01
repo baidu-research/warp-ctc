@@ -392,7 +392,7 @@ GpuCTC<ProbT>::compute_probs(const ProbT* const activations) {
 
     // Kernel launch to calculate probabilities
     compute_probs_kernel<ProbT, VT><<<grid_size, NT, 0, stream_>>>
-        (ctc_helper::exponential<ProbT>(), probs_,
+        (ctc_helper::clipped_exponential<ProbT>(), probs_,
          denoms_, out_dim_, num_elements);
 
     return CTC_STATUS_SUCCESS;
