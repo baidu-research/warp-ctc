@@ -44,6 +44,13 @@ template <typename Arg, typename Res = Arg> struct exponential {
     HOSTDEVICE Res operator()(const Arg& x) const {return std::exp(x);}
 };
 
+template <typename Arg, typename Res = Arg> struct clipped_exponential {
+    HOSTDEVICE Res operator()(const Arg& x) const {
+        Arg min_Arg = std::numeric_limits<Arg>::min();
+        return maximum<Res>()(min_Arg, std::exp(x));
+    }
+};
+
 template<typename Arg1, typename Arg2 = Arg1, typename Res=Arg1>
 struct log_plus {
     typedef Res result_type;
