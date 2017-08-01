@@ -88,8 +88,8 @@ template<typename ProbT, int NT, int VT>
 __global__
 void compute_alpha_kernel (const ProbT* probs, const int *label_sizes,
                            const int *utt_length, const int *repeats_in_labels,
-                           const int *labels_without_blanks, const int *label_offsets, 
-                           int *labels_with_blanks, ProbT *alphas, 
+                           const int *labels_without_blanks, const int *label_offsets,
+                           int *labels_with_blanks, ProbT *alphas,
                            ProbT* nll_forward, int stride, int out_dim,
                            int S_memoffset, int T_memoffset, int blank_label) {
 
@@ -464,6 +464,23 @@ __global__ void compute_probs_kernel(Op f, ProbT* probs,
         if (idx < count) {
             const int column_idx = idx / alphabet_size;
             probs[idx] = f(probs[idx]) / denom[column_idx];
+        }
+        idx += stride;
+    }
+}
+
+template <typename ProbT, int VT = 1>
+__global__ void truncate_probs_kernel(ProbT* probs, int count) {
+
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    ProbT min_T = numeric_limits<ProbT>::min();
+#pragma unroll
+    for(int i = 0; i < VT; i++) {
+        if (idx < count) {
+            if (min_T > probs[idx]) {
+                probs[idx] = min_T;
+            }
         }
         idx += stride;
     }
