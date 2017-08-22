@@ -6,15 +6,6 @@ ENDIF()
 
 project(ctc_release)
 
-IF (NOT APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -O2")
-ENDIF()
-
-IF (APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2")
-    add_definitions(-DAPPLE)
-ENDIF()
-
 include_directories(include)
 
 FIND_PACKAGE(CUDA 6.5)
@@ -35,7 +26,16 @@ else(BUILD_SHARED)
     set(WARPCTC_SHARED "STATIC")
 endif(BUILD_SHARED)
 
-if(NOT WITH_OMP)
+# Set c++ flags 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+if(APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    add_definitions(-DAPPLE)
+endif()
+
+if(WITH_OMP AND NOT APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+else()
     add_definitions(-DCTC_DISABLE_OMP)
 endif()
 
@@ -54,7 +54,9 @@ ENDIF()
 
 IF(NOT APPLE)
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --std=c++11")
-    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcompiler -fopenmp")
+    if(WITH_OMP)
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcompiler -fopenmp")
+    endif()
 ENDIF()
 
 IF (APPLE)
