@@ -7,7 +7,7 @@ ENDIF()
 project(ctc_release)
 
 IF (NOT APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -O2")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -O2 -lrt")
 ENDIF()
 
 IF (APPLE)
@@ -38,6 +38,10 @@ IF (CUDA_VERSION GREATER 7.6)
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_60,code=sm_60")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_61,code=sm_61")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_62,code=sm_62")
+ENDIF()
+
+IF (CUDA_VERSION GREATER_EQUAL 9.0)
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_70,code=sm_70")
 ENDIF()
 
 if (NOT APPLE)
