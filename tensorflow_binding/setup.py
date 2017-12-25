@@ -78,7 +78,7 @@ extra_compile_args = ['-std=c++11', '-fPIC', '-D_GLIBCXX_USE_CXX11_ABI=' + TF_CX
 extra_compile_args += ['-Wno-return-type']
 
 if tf.__version__ >= '1.4':
-    extra_link_args = ['-L' + tf.sysconfig.get_lib(),'-ltensorflow_framework']
+    extra_link_args = ['-L' + tf.sysconfig.get_lib(), '-ltensorflow_framework']
 else:
     extra_link_args = []
 
