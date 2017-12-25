@@ -8,6 +8,7 @@ import re
 import setuptools
 import sys
 import unittest
+import warnings
 from setuptools.command.build_ext import build_ext as orig_build_ext
 
 # We need to import tensorflow to find where its include directory is.
@@ -56,9 +57,30 @@ tf_includes = [tf_include, tf_src_dir]
 warp_ctc_includes = [os.path.join(root_path, '../include')]
 include_dirs = tf_includes + warp_ctc_includes
 
-extra_compile_args = ['-std=c++11', '-fPIC']
+if tf.__version__ >= '1.4':
+    include_dirs += [tf_include + '/external/nsync/public']
+
+if os.getenv("TF_CXX11_ABI") is not None:
+    TF_CXX11_ABI = os.getenv("TF_CXX11_ABI")
+else:
+    warnings.warn("Assuming tensorflow was compiled without C++11 ABI. "
+                  "It is generally true if you are using binary pip package. "
+                  "If you compiled tensorflow from source with gcc >= 5 and didn't set "
+                  "-D_GLIBCXX_USE_CXX11_ABI=0 during compilation, you need to set "
+                  "environment variable TF_CXX11_ABI=1 when compiling this bindings. "
+                  "Also be sure to touch some files in src to trigger recompilation. "
+                  "Also, you need to set (or unsed) this environment variable if getting "
+                  "undefined symbol: _ZN10tensorflow... errors")
+    TF_CXX11_ABI = "0"
+
+extra_compile_args = ['-std=c++11', '-fPIC', '-D_GLIBCXX_USE_CXX11_ABI=' + TF_CXX11_ABI]
 # current tensorflow code triggers return type errors, silence those for now
 extra_compile_args += ['-Wno-return-type']
+
+if tf.__version__ >= '1.4':
+    extra_link_args = ['-L' + tf.sysconfig.get_lib(),'-ltensorflow_framework']
+else:
+    extra_link_args = []
 
 if (enable_gpu):
     extra_compile_args += ['-DWARPCTC_ENABLE_GPU']
@@ -92,7 +114,8 @@ ext = setuptools.Extension('warpctc_tensorflow.kernels',
                            library_dirs = [warp_ctc_path],
                            runtime_library_dirs = [os.path.realpath(warp_ctc_path)],
                            libraries = ['warpctc'],
-                           extra_compile_args = extra_compile_args)
+                           extra_compile_args = extra_compile_args,
+                           extra_link_args = extra_link_args)
 
 class build_tf_ext(orig_build_ext):
     def build_extensions(self):
