@@ -40,7 +40,7 @@ IF (CUDA_VERSION GREATER 7.6)
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_62,code=sm_62")
 ENDIF()
 
-IF (CUDA_VERSION GREATER 9.0)
+IF ((CUDA_VERSION GREATER 9.0) OR (CUDA_VERSION EQUAL 9.0))
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_60,code=sm_60")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_61,code=sm_61")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_62,code=sm_62")
@@ -76,6 +76,7 @@ ENDIF()
 IF (WITH_GPU)
 
     MESSAGE(STATUS "Building shared library with GPU support")
+    MESSAGE(STATUS "NVCC_ARCH_FLAGS" ${CUDA_NVCC_FLAGS})
 
     CUDA_ADD_LIBRARY(warpctc SHARED src/ctc_entrypoint.cu src/reduce.cu)
     IF (!Torch_FOUND) 
