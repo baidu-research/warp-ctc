@@ -9,13 +9,15 @@ project(ctc_release)
 include_directories(include)
 
 FIND_PACKAGE(CUDA 6.5)
-FIND_PACKAGE(Torch)
+if(NOT WIN32)
+    FIND_PACKAGE(Torch)
+    option(WITH_TORCH   "compile warp-ctc with Torch."    ${Torch_FOUND})
+endif(NOT WIN32)
 
 MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
 MESSAGE(STATUS "Torch found ${Torch_DIR}")
 
 option(WITH_GPU     "compile warp-ctc with CUDA."     ${CUDA_FOUND})
-option(WITH_TORCH   "compile warp-ctc with Torch."    ${Torch_FOUND})
 option(WITH_OMP     "compile warp-ctc with OpenMP."   ON)
 option(BUILD_TESTS  "build warp-ctc unit tests."      ON)
 option(BUILD_SHARED "build warp-ctc shared library."  ON)
@@ -26,8 +28,18 @@ else(BUILD_SHARED)
     set(WARPCTC_SHARED "STATIC")
 endif(BUILD_SHARED)
 
-# Set c++ flags 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+if(WIN32)
+    set(CMAKE_STATIC_LIBRARY_PREFIX lib)
+    set(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG} /bigobj /MTd")
+    set(CMAKE_C_FLAGS_RELEASE  "${CMAKE_C_FLAGS_RELEASE} /bigobj /MT")
+    set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} /bigobj /MTd")
+    set(CMAKE_CXX_FLAGS_RELEASE   "${CMAKE_CXX_FLAGS_RELEASE} /bigobj /MT")
+else(WIN32)
+    # Set c++ flags
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -O2")
+endif(WIN32)
+
 if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
     add_definitions(-DAPPLE)
@@ -40,7 +52,7 @@ else()
 endif()
 
 # need to be at least 30 or __shfl_down in reduce wont compile
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_30,code=sm_30 -O2")
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_30,code=sm_30")
 set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_35,code=sm_35")
 
 set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_50,code=sm_50")
@@ -56,7 +68,7 @@ IF ((CUDA_VERSION VERSION_GREATER "9.0") OR (CUDA_VERSION VERSION_EQUAL "9.0"))
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_70,code=sm_70")
 ENDIF()
 
-IF(NOT APPLE)
+IF(NOT APPLE AND NOT WIN32)
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --std=c++11")
     if(WITH_OMP)
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcompiler -fopenmp")
@@ -79,14 +91,51 @@ ELSE()
     set(CMAKE_SKIP_RPATH TRUE)
 ENDIF()
 
+# windows treat symbolic file as a real file, which is different with unix
+# We create a hidden file and compile it instead of origin source file.
+function(windows_symbolic TARGET)
+    set(oneValueArgs "")
+    set(multiValueArgs SRCS PATH DEPS)
+    cmake_parse_arguments(windows_symbolic "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    set(final_path ${CMAKE_CURRENT_SOURCE_DIR}/${windows_symbolic_PATH})
+    foreach(src ${windows_symbolic_SRCS})
+        get_filename_component(src ${src} NAME_WE)
+        if (NOT EXISTS ${final_path}/${src}.cpp OR NOT EXISTS ${final_path}/${src}.cu)
+            message(FATAL " ${final_path}/${src}.cc and ${final_path}/${src}.cu must exsits, and ${final_path}/${src}.cu must be symbolic file.")
+        endif()
+
+        # only copy the xx.cu to .xx.cu when the content are modified
+        set(copy_flag 1)
+        if (EXISTS ${final_path}/.${src}.cu)
+            file(READ ${final_path}/${src}.cpp SOURCE_STR)
+            file(READ ${final_path}/.${src}.cu TARGET_STR)
+            if (SOURCE_STR STREQUAL TARGET_STR)
+                set(copy_flag 0)
+            endif()
+        endif()
+        if (copy_flag)
+            add_custom_command(OUTPUT ${final_path}/.${src}.cu
+                    COMMAND ${CMAKE_COMMAND} -E remove ${final_path}/.${src}.cu
+                    COMMAND ${CMAKE_COMMAND} -E copy "${final_path}/${src}.cpp" "${final_path}/.${src}.cu"
+                    COMMENT "create hidden file of ${src}.cu")
+        endif(copy_flag)
+        add_custom_target(${TARGET} ALL DEPENDS ${final_path}/.${src}.cu)
+    endforeach()
+endfunction()
 
 IF (WITH_GPU)
 
     MESSAGE(STATUS "Building shared library with GPU support")
     MESSAGE(STATUS "NVCC_ARCH_FLAGS" ${CUDA_NVCC_FLAGS})
 
-    CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
-    IF (!WITH_TORCH) 
+    if (WIN32)
+        windows_symbolic(ctc_entrypoint SRCS ctc_entrypoint.cu PATH src)
+        CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/.ctc_entrypoint.cu src/reduce.cu)
+    else()
+        CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
+    endif(WIN32)
+
+    IF (!WITH_TORCH)
         TARGET_LINK_LIBRARIES(warpctc ${CUDA_curand_LIBRARY})
     ENDIF()
 
@@ -131,7 +180,7 @@ IF (WITH_GPU)
 ELSE()
     MESSAGE(STATUS "Building shared library with no GPU support")
 
-    if (NOT APPLE)
+    if (NOT APPLE AND NOT WIN32)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2")
     ENDIF()
 
