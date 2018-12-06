@@ -9,15 +9,13 @@ project(ctc_release)
 include_directories(include)
 
 FIND_PACKAGE(CUDA 6.5)
-if(NOT WIN32)
-    FIND_PACKAGE(Torch)
-    option(WITH_TORCH   "compile warp-ctc with Torch."    ${Torch_FOUND})
-endif(NOT WIN32)
+FIND_PACKAGE(Torch)
 
 MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
 MESSAGE(STATUS "Torch found ${Torch_DIR}")
 
 option(WITH_GPU     "compile warp-ctc with CUDA."     ${CUDA_FOUND})
+option(WITH_TORCH   "compile warp-ctc with Torch."    ${Torch_FOUND})
 option(WITH_OMP     "compile warp-ctc with OpenMP."   ON)
 option(BUILD_TESTS  "build warp-ctc unit tests."      ON)
 option(BUILD_SHARED "build warp-ctc shared library."  ON)
