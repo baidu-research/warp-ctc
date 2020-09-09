@@ -111,6 +111,16 @@ API_REFERENCE ctcStatus_t compute_ctc_loss(const float* const activations,
                              float *costs,
                              void *workspace,
                              ctcOptions options);
+API_REFERENCE ctcStatus_t compute_ctc_loss_double(const double* const activations,
+                             double* gradients,
+                             const int* const flat_labels,
+                             const int* const label_lengths,
+                             const int* const input_lengths,
+                             int alphabet_size,
+                             int minibatch,
+                             double *costs,
+                             void *workspace,
+                             ctcOptions options);
 
 
 /** For a given set of labels and minibatch size return the required workspace
@@ -131,6 +141,12 @@ API_REFERENCE ctcStatus_t compute_ctc_loss(const float* const activations,
  *  \return Status information
  **/
 API_REFERENCE ctcStatus_t get_workspace_size(const int* const label_lengths,
+                               const int* const input_lengths,
+                               int alphabet_size, int minibatch,
+                               ctcOptions info,
+                               size_t* size_bytes);
+
+API_REFERENCE ctcStatus_t  get_workspace_size_double(const int* const label_lengths,
                                const int* const input_lengths,
                                int alphabet_size, int minibatch,
                                ctcOptions info,
