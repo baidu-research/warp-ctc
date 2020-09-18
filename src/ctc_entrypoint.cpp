@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstddef>
 #include <iostream>
 #include <algorithm>
 #include <cstdio>
@@ -253,22 +253,22 @@ ctcStatus_t get_workspace_size_double(const int* const label_lengths,
         *size_bytes += 2 * sizeof(double) * minibatch;
 
         //repeats
-        *size_bytes += sizeof(double) * minibatch;
+        *size_bytes += sizeof(int) * minibatch;
 
         //label offsets
-        *size_bytes += sizeof(double) * minibatch;
+        *size_bytes += sizeof(int) * minibatch;
 
         //utt_length
-        *size_bytes += sizeof(double) * minibatch;
+        *size_bytes += sizeof(int) * minibatch;
 
         //label lengths
-        *size_bytes += sizeof(double) * minibatch;
+        *size_bytes += sizeof(int) * minibatch;
 
         //labels without blanks - overallocate for now
-        *size_bytes += sizeof(double) * maxL * minibatch;
+        *size_bytes += sizeof(int) * maxL * minibatch;
 
         //labels with blanks
-        *size_bytes += sizeof(double) * S * minibatch;
+        *size_bytes += sizeof(int) * S * minibatch;
 
         //alphas
         *size_bytes += sizeof(double) * S * maxT * minibatch;
@@ -297,7 +297,7 @@ ctcStatus_t get_workspace_size_double(const int* const label_lengths,
         per_minibatch_bytes += sizeof(double) * S;
 
         //labels w/blanks, e_inc, s_inc
-        per_minibatch_bytes += 3 * sizeof(double) * S;
+        per_minibatch_bytes += 3 * sizeof(int) * S;
 
         *size_bytes = per_minibatch_bytes * minibatch;
 
