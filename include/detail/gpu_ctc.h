@@ -367,7 +367,7 @@ GpuCTC<ProbT>::compute_probs(const ProbT* const activations) {
 
     // Numerically stable SM
     ctcStatus_t ctc_status =
-        reduce_max(probs_, denoms_, out_dim_,
+        reduce_max<ProbT>(probs_, denoms_, out_dim_,
                    activation_cols_, 1, stream_);
     if (ctc_status != CTC_STATUS_SUCCESS)
         return ctc_status;
@@ -385,7 +385,7 @@ GpuCTC<ProbT>::compute_probs(const ProbT* const activations) {
 
     // Reduce along columns to calculate denominator
     ctc_status =
-        reduce_exp(probs_, denoms_, out_dim_,
+        reduce_exp<ProbT>(probs_, denoms_, out_dim_,
                    activation_cols_, 1, stream_);
     if (ctc_status != CTC_STATUS_SUCCESS)
         return ctc_status;
