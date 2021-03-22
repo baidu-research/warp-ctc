@@ -19,6 +19,7 @@ option(WITH_TORCH   "compile warp-ctc with Torch."    ${Torch_FOUND})
 option(WITH_OMP     "compile warp-ctc with OpenMP."   ON)
 option(BUILD_TESTS  "build warp-ctc unit tests."      ON)
 option(BUILD_SHARED "build warp-ctc shared library."  ON)
+option(WITH_ROCM        "Compile PaddlePaddle with ROCM platform"         OFF)
 
 if(BUILD_SHARED)
     set(WARPCTC_SHARED "SHARED")
@@ -141,7 +142,11 @@ function(windows_symbolic TARGET)
     endforeach()
 endfunction()
 
-IF (WITH_GPU)
+if(WITH_ROCM)
+    include(hip)
+endif(WITH_ROCM)
+
+IF (WITH_GPU OR WITH_ROCM)
 
     MESSAGE(STATUS "Building shared library with GPU support")
     MESSAGE(STATUS "NVCC_ARCH_FLAGS" ${CUDA_NVCC_FLAGS})

@@ -15,7 +15,7 @@ inline void throw_on_error(ctcStatus_t status, const char* message) {
     }
 }
 
-#ifdef __CUDACC__
+#ifdef __CUDACC__ || __HIPCC__
 #include <thrust/system_error.h>
 #include <thrust/system/cuda/error.h>
 
