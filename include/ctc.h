@@ -20,14 +20,6 @@
 extern "C" {
 #endif
 
-#if (defined(__CUDACC__) || defined(__HIPCC__))
-#ifdef __HIPCC__
-#include <hip/hip_runtime.h>
-#else
-#include <cuda_runtime.h>
-#endif
-#endif
-
 //forward declare of CUDA typedef to avoid needing to pull in CUDA headers
 #ifdef __CUDACC__
 typedef struct CUstream_st* CUstream;
