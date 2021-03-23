@@ -9,9 +9,11 @@ project(ctc_release)
 include_directories(include)
 
 FIND_PACKAGE(CUDA 6.5)
+FIND_PACKAGE(HIP QUIET)
 FIND_PACKAGE(Torch)
 
 MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
+MESSAGE(STATUS "hip found ${HIP_FOUND}")
 MESSAGE(STATUS "Torch found ${Torch_DIR}")
 
 option(WITH_GPU     "compile warp-ctc with CUDA."     ${CUDA_FOUND})
@@ -19,7 +21,7 @@ option(WITH_TORCH   "compile warp-ctc with Torch."    ${Torch_FOUND})
 option(WITH_OMP     "compile warp-ctc with OpenMP."   ON)
 option(BUILD_TESTS  "build warp-ctc unit tests."      ON)
 option(BUILD_SHARED "build warp-ctc shared library."  ON)
-option(WITH_ROCM        "Compile PaddlePaddle with ROCM platform"         OFF)
+option(WITH_ROCM     "Compile PaddlePaddle with ROCM platform"             ${HIP_FOUND})
 
 if(BUILD_SHARED)
     set(WARPCTC_SHARED "SHARED")
@@ -142,25 +144,34 @@ function(windows_symbolic TARGET)
     endforeach()
 endfunction()
 
-if(WITH_ROCM)
-    include(hip)
-endif(WITH_ROCM)
-
 IF (WITH_GPU OR WITH_ROCM)
 
     MESSAGE(STATUS "Building shared library with GPU support")
-    MESSAGE(STATUS "NVCC_ARCH_FLAGS" ${CUDA_NVCC_FLAGS})
+
+    IF (WITH_GPU)
+        MESSAGE(STATUS "NVCC_ARCH_FLAGS" ${CUDA_NVCC_FLAGS})
+    ENDIF()
 
     if (WIN32)
-        SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcompiler \"/wd 4068 /wd 4244 /wd 4267 /wd 4305 /wd 4819\"")
-        windows_symbolic(ctc_entrypoint SRCS ctc_entrypoint.cu PATH src)
-        CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/.ctc_entrypoint.cu src/reduce.cu)
+        IF (WITH_GPU)
+            SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcompiler \"/wd 4068 /wd 4244 /wd 4267 /wd 4305 /wd 4819\"")
+            windows_symbolic(ctc_entrypoint SRCS ctc_entrypoint.cu PATH src)
+            CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/.ctc_entrypoint.cu src/reduce.cu)
+        ELSE()
+            HIP_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/.ctc_entrypoint.cu src/reduce.cu)
+        ENDIF()
     else()
-        CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
+        IF (WITH_GPU)
+            CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
+        ELSE()
+            CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
+        ENDIF()
     endif(WIN32)
 
     IF (!WITH_TORCH)
-        TARGET_LINK_LIBRARIES(warpctc ${CUDA_curand_LIBRARY})
+        IF (WITH_GPU)
+            TARGET_LINK_LIBRARIES(warpctc ${CUDA_curand_LIBRARY})
+        ENDIF()
     ENDIF()
 
     if(BUILD_TESTS)
@@ -169,7 +180,11 @@ IF (WITH_GPU OR WITH_ROCM)
         SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
 
         cuda_add_executable(test_gpu tests/test_gpu.cu)
-        TARGET_LINK_LIBRARIES(test_gpu warpctc ${CUDA_curand_LIBRARY})
+        IF (WITH_GPU)
+            TARGET_LINK_LIBRARIES(test_gpu warpctc ${CUDA_curand_LIBRARY})
+        ELSE()
+            TARGET_LINK_LIBRARIES(test_gpu warpctc ${HIP_hiprand_LIBRARY})
+        ENDIF()
     endif(BUILD_TESTS)
 
     INSTALL(TARGETS warpctc
@@ -180,24 +195,26 @@ IF (WITH_GPU OR WITH_ROCM)
     INSTALL(FILES include/ctc.h DESTINATION "include")
 
     IF (WITH_TORCH)
-        MESSAGE(STATUS "Building Torch Bindings with GPU support")
-        INCLUDE_DIRECTORIES(${CUDA_INCLUDE_DIRS} "${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc")
-        INCLUDE_DIRECTORIES(${Torch_INSTALL_INCLUDE} ${Torch_INSTALL_INCLUDE}/TH ${Torch_INSTALL_INCLUDE}/THC)
+        IF (WITH_GPU)
+            MESSAGE(STATUS "Building Torch Bindings with GPU support")
+            INCLUDE_DIRECTORIES(${CUDA_INCLUDE_DIRS} "${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc")
+            INCLUDE_DIRECTORIES(${Torch_INSTALL_INCLUDE} ${Torch_INSTALL_INCLUDE}/TH ${Torch_INSTALL_INCLUDE}/THC)
 
-        TARGET_LINK_LIBRARIES(warpctc luajit luaT THC TH ${CUDA_curand_LIBRARY})
-        INSTALL(TARGETS warpctc
-                RUNTIME DESTINATION "${Torch_INSTALL_BIN_SUBDIR}"
-                LIBRARY DESTINATION "${Torch_INSTALL_LIB_SUBDIR}"
-                ARCHIVE DESTINATION "${Torch_INSTALL_LIB_SUBDIR}")
+            TARGET_LINK_LIBRARIES(warpctc luajit luaT THC TH ${CUDA_curand_LIBRARY})
+            INSTALL(TARGETS warpctc
+                    RUNTIME DESTINATION "${Torch_INSTALL_BIN_SUBDIR}"
+                    LIBRARY DESTINATION "${Torch_INSTALL_LIB_SUBDIR}"
+                    ARCHIVE DESTINATION "${Torch_INSTALL_LIB_SUBDIR}")
 
-        SET(src torch_binding/binding.cpp torch_binding/utils.c)
-        SET(luasrc torch_binding/init.lua)
+            SET(src torch_binding/binding.cpp torch_binding/utils.c)
+            SET(luasrc torch_binding/init.lua)
 
-        ADD_TORCH_PACKAGE(warp_ctc "${src}" "${luasrc}")
-        IF (APPLE)
-            TARGET_LINK_LIBRARIES(warp_ctc warpctc luajit luaT THC TH ${CUDA_curand_LIBRARY})
-        ELSE()
-            TARGET_LINK_LIBRARIES(warp_ctc warpctc luajit luaT THC TH ${CUDA_curand_LIBRARY} gomp)
+            ADD_TORCH_PACKAGE(warp_ctc "${src}" "${luasrc}")
+            IF (APPLE)
+                TARGET_LINK_LIBRARIES(warp_ctc warpctc luajit luaT THC TH ${CUDA_curand_LIBRARY})
+            ELSE()
+                TARGET_LINK_LIBRARIES(warp_ctc warpctc luajit luaT THC TH ${CUDA_curand_LIBRARY} gomp)
+            ENDIF()
         ENDIF()
     ENDIF()
 
