@@ -32,7 +32,7 @@ extern "C" {
 #ifdef __CUDACC__
 typedef struct CUstream_st* CUstream;
 #else
-typedef struct hipStream_t* CUstream;
+using CUstream = hipStream_t;
 #endif
 
 typedef enum {
