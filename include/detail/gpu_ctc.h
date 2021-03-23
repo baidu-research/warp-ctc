@@ -10,7 +10,11 @@ class GpuCTC {
         GpuCTC(int alphabet_size,
                int minibatch,
                void *workspace,
+#ifdef __CUDACC__
                CUstream stream,
+#else
+               hipStream_t stream,
+#endif
                int blank_label) :
             out_dim_(alphabet_size), minibatch_(minibatch),
             gpu_workspace_(workspace), stream_(stream),
