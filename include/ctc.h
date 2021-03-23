@@ -15,6 +15,10 @@
 #define API_REFERENCE
 #endif
 
+#ifdef __HIPCC__
+#include <hip/hip_runtime.h>
+#endif
+
 #ifdef __cplusplus
 #include <cstddef>
 extern "C" {
