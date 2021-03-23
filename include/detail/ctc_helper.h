@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "hostdevice.h"
+#include "type_defs.h"
 
 namespace ctc_helper {
 
