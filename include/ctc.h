@@ -15,6 +15,8 @@
 #define API_REFERENCE
 #endif
 
+#include <stdio.h>
+
 #ifdef __HIPCC__
 #include <hip/hip_runtime.h>
 #endif
@@ -28,7 +30,8 @@ extern "C" {
 using CUstream = hipStream_t;
 #else
 //forward declare of CUDA typedef to avoid needing to pull in CUDA headers
-typedef struct CUstream_st* CUstream;
+//typedef struct CUstream_st* CUstream;
+using CUstream = hipStream_t;
 #endif
 
 typedef enum {
