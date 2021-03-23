@@ -12,6 +12,10 @@ FIND_PACKAGE(CUDA 6.5 QUIET)
 FIND_PACKAGE(HIP QUIET)
 FIND_PACKAGE(Torch QUIET)
 
+IF(HIP_FOUND)
+  MESSAGE(STATUS "HIP_ROOT_DIR ${HIP_ROOT_DIR}")
+ENDIF()
+
 MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
 MESSAGE(STATUS "hip found ${HIP_FOUND}")
 MESSAGE(STATUS "Torch found ${Torch_DIR}")
@@ -22,6 +26,10 @@ option(WITH_OMP     "compile warp-ctc with OpenMP."   ON)
 option(BUILD_TESTS  "build warp-ctc unit tests."      OFF)
 option(BUILD_SHARED "build warp-ctc shared library."  ON)
 option(WITH_ROCM     "Compile PaddlePaddle with ROCM platform"             ${HIP_FOUND})
+
+if(WITH_ROCM)
+    include(hip)
+endif(WITH_ROCM)
 
 if(BUILD_SHARED)
     set(WARPCTC_SHARED "SHARED")
