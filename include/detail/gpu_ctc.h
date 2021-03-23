@@ -10,11 +10,7 @@ class GpuCTC {
         GpuCTC(int alphabet_size,
                int minibatch,
                void *workspace,
-#ifdef __CUDACC__
                CUstream stream,
-#else
-               hipStream_t stream,
-#endif
                int blank_label) :
             out_dim_(alphabet_size), minibatch_(minibatch),
             gpu_workspace_(workspace), stream_(stream),
@@ -87,11 +83,7 @@ class GpuCTC {
 
         int activation_cols_; // Number of columns in activations
 
-#ifdef __CUDACC__
         CUstream stream_;
-#else
-        hipStream_t stream_;
-#endif
 
         int blank_label_;
 
