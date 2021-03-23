@@ -180,16 +180,30 @@ GpuCTC<ProbT>::setup_gpu_metadata(const int* const flat_labels,
             Lmax = std::max(Lmax, L);
         }
 
+#ifdef __CUDACC__
         cuda_status = cudaMemcpyAsync(&(repeats_[start_idx]), repeats,
                                       (end_idx - start_idx) * sizeof(int),
                                       cudaMemcpyHostToDevice, stream_);
+#else
+        cuda_status = hipMemcpyAsync(&(repeats_[start_idx]), repeats,
+                                      (end_idx - start_idx) * sizeof(int),
+                                      hipMemcpyHostToDevice, stream_);
+#endif
+
         if (cuda_status != gpuSuccess)
             return CTC_STATUS_MEMOPS_FAILED;
 
 
+#ifdef __CUDACC__
         cuda_status = cudaMemcpyAsync(&(label_offsets_[start_idx]), label_offsets,
                                       (end_idx - start_idx) * sizeof(int),
                                       cudaMemcpyHostToDevice, stream_);
+#else
+        cuda_status = hipMemcpyAsync(&(label_offsets_[start_idx]), label_offsets,
+                                      (end_idx - start_idx) * sizeof(int),
+                                      hipMemcpyHostToDevice, stream_);
+#endif
+
         if (cuda_status != gpuSuccess)
             return CTC_STATUS_MEMOPS_FAILED;
     }
@@ -205,9 +219,16 @@ GpuCTC<ProbT>::setup_gpu_metadata(const int* const flat_labels,
                                 gpu_bytes_used);
     gpu_bytes_used += minibatch_  * sizeof(int);
 
+#ifdef __CUDACC__
     cuda_status = cudaMemcpyAsync(utt_length_, input_lengths,
                                   minibatch_ * sizeof(int),
                                   cudaMemcpyHostToDevice, stream_);
+#else
+    cuda_status = hipMemcpyAsync(utt_length_, input_lengths,
+                                  minibatch_ * sizeof(int),
+                                  hipMemcpyHostToDevice, stream_);
+#endif
+
     if (cuda_status != gpuSuccess)
         return CTC_STATUS_MEMOPS_FAILED;
 
@@ -215,9 +236,17 @@ GpuCTC<ProbT>::setup_gpu_metadata(const int* const flat_labels,
         reinterpret_cast<int *>(static_cast<char*>(gpu_workspace_) +
                                 gpu_bytes_used);
     gpu_bytes_used += minibatch_ * sizeof(int);
+
+#ifdef __CUDACC__
     cuda_status = cudaMemcpyAsync(label_sizes_, label_lengths,
                                   minibatch_ * sizeof(int),
                                   cudaMemcpyHostToDevice, stream_);
+#else
+    cuda_status = hipMemcpyAsync(label_sizes_, label_lengths,
+                                  minibatch_ * sizeof(int),
+                                  hipMemcpyHostToDevice, stream_);
+#endif
+
     if (cuda_status != gpuSuccess)
         return CTC_STATUS_MEMOPS_FAILED;
 
@@ -225,9 +254,17 @@ GpuCTC<ProbT>::setup_gpu_metadata(const int* const flat_labels,
         reinterpret_cast<int *>(static_cast<char*>(gpu_workspace_) +
                                 gpu_bytes_used);
     gpu_bytes_used += Lmax * minibatch_ * sizeof(int);
+
+#ifdef __CUDACC__
     cuda_status = cudaMemcpyAsync(labels_without_blanks_, flat_labels,
                                   total_label_length * sizeof(int),
                                   cudaMemcpyHostToDevice, stream_);
+#else
+    cuda_status = hipMemcpyAsync(labels_without_blanks_, flat_labels,
+                                  total_label_length * sizeof(int),
+                                  hipMemcpyHostToDevice, stream_);
+#endif
+
     if (cuda_status != gpuSuccess)
         return CTC_STATUS_MEMOPS_FAILED;
 
@@ -287,7 +324,7 @@ ctcStatus_t GpuCTC<ProbT>::launch_alpha_beta_kernels(const ProbT* const probs,
         eamSynchronize(stream_);
     }
 
-#if defined(__CUDACC__)
+#ifdef __CUDACC__
     gpuError_t err = cudaGetLastError();
 #else
     gpuError_t err = hipGetLastError();
@@ -364,10 +401,19 @@ ctcStatus_t
 GpuCTC<ProbT>::compute_probs(const ProbT* const activations) {
 
     gpuError_t cuda_status;
+
+#ifdef __CUDACC__
     cuda_status =
         cudaMemcpyAsync(probs_, activations,
                         activation_cols_ * out_dim_ *sizeof(ProbT),
                         cudaMemcpyDeviceToDevice, stream_);
+#else
+    cuda_status =
+        hipMemcpyAsync(probs_, activations,
+                        activation_cols_ * out_dim_ *sizeof(ProbT),
+                        hipMemcpyDeviceToDevice, stream_);
+#endif
+
     if (cuda_status != gpuSuccess)
         return CTC_STATUS_MEMOPS_FAILED;
 
@@ -434,11 +480,18 @@ GpuCTC<ProbT>::compute_cost_and_score(const ProbT* const activations,
                        compute_alpha, compute_betas_and_grad);
 
     gpuError_t cuda_status_mem, cuda_status_sync;
+
+#ifdef __CUDACC__
     cuda_status_mem = cudaMemcpyAsync(costs, nll_forward_,
                                       sizeof(ProbT) * minibatch_,
                                       cudaMemcpyDeviceToHost, stream_);
+#else
+    cuda_status_mem = hipMemcpyAsync(costs, nll_forward_,
+                                      sizeof(ProbT) * minibatch_,
+                                      hipMemcpyDeviceToHost, stream_);
+#endif
        
-#if defined(__CUDACC__)
+#ifdef __CUDACC__
     cuda_status_sync = cudaStreamSynchronize(stream_);
 #else
     cuda_status_sync = hipStreamSynchronize(stream_);
