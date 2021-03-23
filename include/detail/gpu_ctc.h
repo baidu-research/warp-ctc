@@ -329,8 +329,11 @@ ctcStatus_t GpuCTC<ProbT>::launch_alpha_beta_kernels(const ProbT* const probs,
              labels_with_blanks_, alphas_, nll_forward_, nll_backward_,
              grads, stride, out_dim_, S_, T_, blank_label_);
 
-        cudaStr
-        eamSynchronize(stream_);
+#ifdef __CUDACC__
+        cudaStreamSynchronize(stream_);
+#else
+        hipStreamSynchronize(stream_);
+#endif
     }
 
 #ifdef __CUDACC__
