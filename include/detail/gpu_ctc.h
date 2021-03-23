@@ -83,7 +83,12 @@ class GpuCTC {
 
         int activation_cols_; // Number of columns in activations
 
+#ifdef __CUDACC__
         CUstream stream_;
+#else
+        hipStream_t stream_;
+#endif
+
         int blank_label_;
 
         void *gpu_workspace_; // Buffer for all temporary GPU memory
