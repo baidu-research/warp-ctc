@@ -6,7 +6,7 @@
 #include <ctc.h>
 
 #include "detail/cpu_ctc.h"
-#if (defined(__CUDACC__) || defined(__HIPCC__))
+#if (defined(__HIPCC__) || defined(__CUDACC__))
     #include "detail/gpu_ctc.h"
 #endif
 
@@ -70,7 +70,7 @@ ctcStatus_t compute_ctc_loss(const float* const activations,
             return ctc.score_forward(activations, costs, flat_labels,
                                      label_lengths, input_lengths);
     } else if (options.loc == CTC_GPU) {
-#if (defined(__CUDACC__) || defined(__HIPCC__))
+#if (defined(__HIPCC__) || defined(__CUDACC__))
         GpuCTC<float> ctc(alphabet_size, minibatch, workspace, options.stream,
                           options.blank_label);
 
@@ -123,7 +123,7 @@ ctcStatus_t compute_ctc_loss_double(const double* const activations,
             return ctc.score_forward(activations, costs, flat_labels,
                                      label_lengths, input_lengths);
     } else if (options.loc == CTC_GPU) {
-#if (defined(__CUDACC__) || defined(__HIPCC__))
+#if (defined(__HIPCC__) || defined(__CUDACC__))
         GpuCTC<double> ctc(alphabet_size, minibatch, workspace, options.stream,
                           options.blank_label);
 

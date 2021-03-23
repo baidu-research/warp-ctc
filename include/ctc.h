@@ -24,11 +24,11 @@
 extern "C" {
 #endif
 
-//forward declare of CUDA typedef to avoid needing to pull in CUDA headers
-#ifdef __CUDACC__
-typedef struct CUstream_st* CUstream;
-#else
+#ifdef __HIPCC__
 using CUstream = hipStream_t;
+#else
+//forward declare of CUDA typedef to avoid needing to pull in CUDA headers
+typedef struct CUstream_st* CUstream;
 #endif
 
 typedef enum {

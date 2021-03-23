@@ -142,12 +142,12 @@ template<typename T, typename Iof, typename  Rof>
 ctcStatus_t reduce(Iof f, Rof g, const T* input, T* output, int rows, int cols, bool axis, gpuStream_t stream) {
     ReduceHelper::impl(f, g, input, output, rows, cols, axis, stream);
 
-#ifdef __CUDACC__
-    cudaStreamSynchronize(stream);
-    gpuError_t err = cudaGetLastError();
-#else
+#ifdef __HIPCC__
     hipStreamSynchronize(stream);
     gpuError_t err = hipGetLastError();
+#else
+    cudaStreamSynchronize(stream);
+    gpuError_t err = cudaGetLastError();
 #endif
 
     if (err != gpuSuccess)
