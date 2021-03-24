@@ -24,6 +24,7 @@ option(BUILD_SHARED "build warp-ctc shared library."  ON)
 option(WITH_ROCM     "Compile PaddlePaddle with ROCM platform"             OFF)
 
 if(WITH_ROCM)
+    add_definitions(-DWARPCTC_WITH_HIP)
     include(hip)
 endif(WITH_ROCM)
 

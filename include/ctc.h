@@ -17,7 +17,7 @@
 
 #include <stdio.h>
 
-#ifdef __HIPCC__
+#ifdef WARPCTC_WITH_HIP
 #include <hip/hip_runtime.h>
 #endif
 
@@ -26,12 +26,11 @@
 extern "C" {
 #endif
 
-#ifdef __HIPCC__
+#ifdef WARPCTC_WITH_HIP
 using CUstream = hipStream_t;
 #else
 //forward declare of CUDA typedef to avoid needing to pull in CUDA headers
-//typedef struct CUstream_st* CUstream;
-using CUstream = hipStream_t;
+typedef struct CUstream_st* CUstream;
 #endif
 
 typedef enum {
