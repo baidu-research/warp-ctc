@@ -184,7 +184,13 @@ IF (WITH_GPU OR WITH_ROCM)
     if(BUILD_TESTS)
         MESSAGE(STATUS "Build tests")
 
-        add_executable(test_cpu tests/test_cpu.cpp )
+        IF (WITH_GPU)
+            add_executable(test_cpu tests/test_cpu.cpp)
+        ELSE()
+            hip_add_executable(test_cpu tests/test_cpu.cpp)
+        ENDIF()
+
+
         TARGET_LINK_LIBRARIES(test_cpu warpctc)
         SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
 
