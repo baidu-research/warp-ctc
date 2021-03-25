@@ -20,7 +20,7 @@ inline void throw_on_error(ctcStatus_t status, const char* message) {
 #include <thrust/system_error.h>
 #include <thrust/system/hip/error.h>
 
-inline void throw_on_error(cudaError_t error, const char* message) {
+inline void throw_on_error(hipError_t error, const char* message) {
     if (error) {
         throw thrust::system_error(error, thrust::hip_category(), message);
     }
