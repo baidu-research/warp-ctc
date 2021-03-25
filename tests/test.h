@@ -15,8 +15,17 @@ inline void throw_on_error(ctcStatus_t status, const char* message) {
     }
 }
 
-#if (defined(__HIPCC__) || defined(__CUDACC__))
-// #ifdef __CUDACC__
+// #if (defined(__HIPCC__) || defined(__CUDACC__))
+#ifdef __HIPCC__
+#include <thrust/system_error.h>
+#include <thrust/system/hip/error.h>
+
+inline void throw_on_error(cudaError_t error, const char* message) {
+    if (error) {
+        throw thrust::system_error(error, thrust::hip_category(), message);
+    }
+}
+#else
 #include <thrust/system_error.h>
 #include <thrust/system/cuda/error.h>
 
@@ -25,7 +34,6 @@ inline void throw_on_error(cudaError_t error, const char* message) {
         throw thrust::system_error(error, thrust::cuda_category(), message);
     }
 }
-
 #endif
 
 std::vector<float>
