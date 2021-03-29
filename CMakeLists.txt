@@ -10,8 +10,8 @@ project(ctc_release)
 
 include_directories(include)
 
-FIND_PACKAGE(CUDA 6.5 QUIET)
-FIND_PACKAGE(Torch QUIET)
+FIND_PACKAGE(CUDA 6.5)
+FIND_PACKAGE(Torch)
 
 MESSAGE(STATUS "cuda found ${CUDA_FOUND}")
 MESSAGE(STATUS "Torch found ${Torch_DIR}")

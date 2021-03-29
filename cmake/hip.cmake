@@ -25,17 +25,9 @@ macro(find_package_and_include PACKAGE_NAME)
   message(STATUS "${PACKAGE_NAME} version: ${${PACKAGE_NAME}_VERSION}")
 endmacro()
 
-# find_package_and_include(miopen)
-# find_package_and_include(rocblas)
 find_package_and_include(hiprand)
 find_package_and_include(rocrand)
-# find_package_and_include(rccl)
 find_package_and_include(rocthrust)
-# find_package_and_include(hipcub)
-# find_package_and_include(rocprim)
-# find_package_and_include(hipsparse)
-# find_package_and_include(rocsparse)
-# find_package_and_include(rocfft)
 
 # set CXX flags for HIP
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__HIP_PLATFORM_HCC__")
