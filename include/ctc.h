@@ -24,10 +24,10 @@ extern "C" {
 
 #ifdef WARPCTC_WITH_HIP
 //forward declare of HIP typedef to avoid needing to pull in HIP headers
-typedef struct ihipStream_t* CUstream;
+typedef struct ihipStream_t* GPUstream;
 #else
 //forward declare of CUDA typedef to avoid needing to pull in CUDA headers
-typedef struct CUstream_st* CUstream;
+typedef struct CUstream_st* GPUstream;
 #endif
 
 typedef enum {
@@ -65,7 +65,7 @@ struct ctcOptions {
         unsigned int num_threads;
 
         /// used when loc == CTC_GPU, which stream the kernels should be launched in
-        CUstream stream;
+        GPUstream stream;
     };
 
     /// the label value/index that the CTC calculation should use as the blank label
