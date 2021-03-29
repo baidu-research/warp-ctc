@@ -17,17 +17,14 @@
 
 #include <stdio.h>
 
-#ifdef WARPCTC_WITH_HIP
-#include <hip/hip_runtime.h>
-#endif
-
 #ifdef __cplusplus
 #include <cstddef>
 extern "C" {
 #endif
 
 #ifdef WARPCTC_WITH_HIP
-using CUstream = hipStream_t;
+//forward declare of HIP typedef to avoid needing to pull in HIP headers
+typedef struct ihipStream_t* CUstream;
 #else
 //forward declare of CUDA typedef to avoid needing to pull in CUDA headers
 typedef struct CUstream_st* CUstream;
