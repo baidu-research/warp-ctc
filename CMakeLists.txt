@@ -166,6 +166,7 @@ IF (WITH_GPU OR WITH_ROCM)
             CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
         ELSE()
             HIP_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
+            TARGET_LINK_LIBRARIES(warpctc PUBLIC ${ROCM_HIPRTC_LIB})
         ENDIF()
     endif(WIN32)
 
