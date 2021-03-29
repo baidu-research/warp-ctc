@@ -189,7 +189,6 @@ IF (WITH_GPU OR WITH_ROCM)
             add_executable(test_cpu tests/test_cpu.cpp)
         ELSE()
             add_executable(test_cpu tests/test_cpu.cpp)
-            TARGET_LINK_LIBRARIES(test_cpu ${ROCM_HIPRTC_LIB})
         ENDIF()
 
 
