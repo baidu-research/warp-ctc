@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef __CUDACC__
+#if (defined(__HIPCC__) || defined(__CUDACC__))
     #define HOSTDEVICE __host__ __device__
 #else
     #define HOSTDEVICE
