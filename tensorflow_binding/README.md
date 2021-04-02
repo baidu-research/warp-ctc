@@ -77,7 +77,7 @@ with tf.get_default_graph()._kernel_label_map({"CTCLoss": "WarpCTC"}):
     loss = tf.nn.ctc_loss(inputs, labels, seq_lens)
 ```
 
-Note that `proprocess_collapse_repeated` must be `False` and
+Note that `preprocess_collapse_repeated` must be `False` and
 `ctc_merge_repeated` must be `True` (their default values) as these
 options are not currently supported.
 
