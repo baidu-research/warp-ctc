@@ -131,20 +131,9 @@ function(windows_symbolic TARGET)
         endif()
 
         # only copy the xx.cu to .xx.cu when the content are modified
-        set(copy_flag 1)
-        if (EXISTS ${final_path}/.${src}.cu)
-            file(READ ${final_path}/${src}.cpp SOURCE_STR)
-            file(READ ${final_path}/.${src}.cu TARGET_STR)
-            if (SOURCE_STR STREQUAL TARGET_STR)
-                set(copy_flag 0)
-            endif()
-        endif()
-        if (copy_flag)
-            add_custom_command(OUTPUT ${final_path}/.${src}.cu
-                    COMMAND ${CMAKE_COMMAND} -E remove ${final_path}/.${src}.cu
-                    COMMAND ${CMAKE_COMMAND} -E copy "${final_path}/${src}.cpp" "${final_path}/.${src}.cu"
-                    COMMENT "create hidden file of ${src}.cu")
-        endif(copy_flag)
+        add_custom_command(OUTPUT ${final_path}/.${src}.cu
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${final_path}/${src}.cpp" "${final_path}/.${src}.cu"
+                COMMENT "create hidden file of ${src}.cu")
         add_custom_target(${TARGET} ALL DEPENDS ${final_path}/.${src}.cu)
     endforeach()
 endfunction()
