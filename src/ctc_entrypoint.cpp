@@ -72,7 +72,10 @@ ctcStatus_t compute_ctc_loss(const float* const activations,
     } else if (options.loc == CTC_GPU) {
 #if (defined(__HIPCC__) || defined(__CUDACC__))
         GpuCTC<float> ctc(alphabet_size, minibatch, workspace, options.stream,
-                          options.blank_label);
+                          options.blank_label, options.params.flat_labels_loc == CTC_CPU,
+                          options.params.label_lengths_loc == CTC_CPU,
+                          options.params.input_lengths_loc == CTC_CPU,
+                          options.params.costs_loc == CTC_CPU);
 
         if (gradients != NULL)
             return ctc.cost_and_grad(activations, gradients, costs,
@@ -112,7 +115,7 @@ ctcStatus_t compute_ctc_loss_double(const double* const activations,
 
     if (options.loc == CTC_CPU) {
         CpuCTC<double> ctc(alphabet_size, minibatch, workspace, options.num_threads,
-                          options.blank_label);
+                           options.blank_label);
 
         if (gradients != NULL)
             return ctc.cost_and_grad(activations, gradients,
@@ -125,7 +128,10 @@ ctcStatus_t compute_ctc_loss_double(const double* const activations,
     } else if (options.loc == CTC_GPU) {
 #if (defined(__HIPCC__) || defined(__CUDACC__))
         GpuCTC<double> ctc(alphabet_size, minibatch, workspace, options.stream,
-                          options.blank_label);
+                           options.blank_label, options.params.flat_labels_loc == CTC_CPU,
+                           options.params.label_lengths_loc == CTC_CPU,
+                           options.params.input_lengths_loc == CTC_CPU,
+                           options.params.costs_loc == CTC_CPU);
 
         if (gradients != NULL)
             return ctc.cost_and_grad(activations, gradients, costs,
@@ -167,8 +173,13 @@ ctcStatus_t get_workspace_size(const int* const label_lengths,
 
     if (options.loc == CTC_GPU) {
         // GPU storage
-        //nll_forward, nll_backward
-        *size_bytes += 2 * sizeof(float) * minibatch;
+        if (options.params.costs_loc == CTC_CPU) {
+            // nll_forward, nll_backward
+            *size_bytes += 2 * sizeof(float) * minibatch;
+        } else {
+            // nll_backward
+            *size_bytes += 1 * sizeof(float) * minibatch;
+        }
 
         //repeats
         *size_bytes += sizeof(int) * minibatch;
@@ -249,8 +260,13 @@ ctcStatus_t get_workspace_size_double(const int* const label_lengths,
 
     if (options.loc == CTC_GPU) {
         // GPU storage
-        //nll_forward, nll_backward
-        *size_bytes += 2 * sizeof(double) * minibatch;
+        if (options.params.costs_loc == CTC_CPU) {
+            // nll_forward, nll_backward
+            *size_bytes += 2 * sizeof(double) * minibatch;
+        } else {
+            // nll_backward
+            *size_bytes += 1 * sizeof(double) * minibatch;
+        }
 
         //repeats
         *size_bytes += sizeof(int) * minibatch;
