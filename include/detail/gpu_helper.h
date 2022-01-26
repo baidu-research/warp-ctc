@@ -14,6 +14,16 @@ static gpuError_t memcpy_d2h_async(void *dst, const void *src, size_t bytes, GPU
     return status;
 }
 
+static gpuError_t memcpy_h2d_async(void *dst, const void *src, size_t bytes, GPUstream stream) {
+    gpuError_t status;
+#ifdef __HIPCC__
+    status = hipMemcpyAsync(dst, src, bytes, hipMemcpyHostToDevice, stream);
+#else
+    status = cudaMemcpyAsync(dst, src, bytes, cudaMemcpyHostToDevice, stream);
+#endif
+    return status;
+}
+
 static gpuError_t synchronize(GPUstream stream) {
     gpuError_t status;
 #ifdef __HIPCC__
