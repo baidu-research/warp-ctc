@@ -5,8 +5,21 @@
 #include <stdexcept>
 #include <vector>
 #include <random>
+#include <string>
 
 #include <ctc.h>
+
+#define CHECK_STATUS(func_call, status)                           \
+    {                                                             \
+        bool s = func_call;                                       \
+        std::string funcname = #func_call;                        \
+        if (s) {                                                  \
+            std::cout << "-- TEST " << funcname << " PASS!\n";    \
+        } else {                                                  \
+            std::cout << "-- TEST " << funcname << " FAILED!\n";  \
+        }                                                         \
+        status &= s;                                              \
+    }
 
 inline void throw_on_error(ctcStatus_t status, const char* message) {
     if (status != CTC_STATUS_SUCCESS) {
