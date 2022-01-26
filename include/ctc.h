@@ -52,6 +52,15 @@ typedef enum {
     CTC_GPU = 1
 } ctcComputeLocation;
 
+struct ctcParamConfigs {
+    /// input params of compute_ctc_loss
+    ctcComputeLocation flat_labels_loc{CTC_CPU};
+    ctcComputeLocation label_lengths_loc{CTC_CPU};
+    ctcComputeLocation input_lengths_loc{CTC_CPU};
+    /// output param of compute_ctc_loss
+    ctcComputeLocation costs_loc{CTC_CPU};
+};
+
 /** Structure used for options to the CTC compution.  Applications
  *  should zero out the array using memset and sizeof(struct
  *  ctcOptions) in C or default initialization (e.g. 'ctcOptions
@@ -70,6 +79,8 @@ struct ctcOptions {
 
     /// the label value/index that the CTC calculation should use as the blank label
     int blank_label;
+    /// where to hold the input and output params
+    ctcParamConfigs params;
 };
 
 /** Compute the connectionist temporal classification loss between 

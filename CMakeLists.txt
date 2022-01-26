@@ -21,7 +21,7 @@ option(WITH_TORCH   "compile warp-ctc with Torch."    ${Torch_FOUND})
 option(WITH_OMP     "compile warp-ctc with OpenMP."   ON)
 option(BUILD_TESTS  "build warp-ctc unit tests."      ON)
 option(BUILD_SHARED "build warp-ctc shared library."  ON)
-option(WITH_ROCM     "Compile PaddlePaddle with ROCM platform"             OFF)
+option(WITH_ROCM    "Compile PaddlePaddle with ROCM platform"             OFF)
 
 if(WITH_ROCM)
     add_definitions(-DWARPCTC_WITH_HIP)
@@ -65,32 +65,38 @@ endif()
 
 # need to be at least 30 or __shfl_down in reduce wont compile
 IF (CUDA_VERSION VERSION_LESS "11.0")
+    # CUDA_VERSION < 11.0
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_30,code=sm_30")
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_35,code=sm_35")
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_50,code=sm_50")
 ENDIF()
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_35,code=sm_35")
 
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_50,code=sm_50")
 set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_52,code=sm_52")
 
 IF (CUDA_VERSION VERSION_GREATER "7.6")
+    # CUDA_VERSION > 7.6
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_60,code=sm_60")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_61,code=sm_61")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_62,code=sm_62")
 ENDIF()
 
 IF ((CUDA_VERSION VERSION_GREATER "9.0") OR (CUDA_VERSION VERSION_EQUAL "9.0"))
+    # CUDA_VERSION >= 9.0
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_70,code=sm_70")
 ENDIF()
 
 IF ((CUDA_VERSION VERSION_GREATER "10.0") OR (CUDA_VERSION VERSION_EQUAL "10.0"))
+    # CUDA_VERSION >= 10.0
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_75,code=sm_75")
 ENDIF()
 
 IF ((CUDA_VERSION VERSION_GREATER "11.0") OR (CUDA_VERSION VERSION_EQUAL "11.0"))
+    # CUDA_VERSION >= 11.0
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_80,code=sm_80")
 ENDIF()
 
 IF ((CUDA_VERSION VERSION_GREATER "11.2") OR (CUDA_VERSION VERSION_EQUAL "11.2"))
+    # CUDA_VERSION >= 11.2
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -gencode arch=compute_86,code=sm_86")
 ENDIF()
 

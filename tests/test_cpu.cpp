@@ -374,16 +374,16 @@ int main(void) {
     std::cout << "Running CPU tests" << std::endl;
 
     bool status = true;
-    status &= small_test();
-    status &= options_test();
-    status &= inf_test();
-    status &= run_tests();
+    CHECK_STATUS(small_test(), status);
+    CHECK_STATUS(options_test(), status);
+    CHECK_STATUS(inf_test(), status);
+    CHECK_STATUS(run_tests(), status);
 
     if (status) {
-        std::cout << "Tests pass" << std::endl;
+        std::cout << "All tests PASS!" << std::endl;
         return 0;
     } else {
-        std::cout << "Some or all tests fail" << std::endl;
+        std::cout << "Some or all tests FAILED!" << std::endl;
         return 1;
     }
 }

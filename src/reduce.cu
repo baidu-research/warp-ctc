@@ -143,10 +143,8 @@ ctcStatus_t reduce(Iof f, Rof g, const T* input, T* output, int rows, int cols, 
     ReduceHelper::impl(f, g, input, output, rows, cols, axis, stream);
 
 #ifdef __HIPCC__
-    hipStreamSynchronize(stream);
     gpuError_t err = hipGetLastError();
 #else
-    cudaStreamSynchronize(stream);
     gpuError_t err = cudaGetLastError();
 #endif
 
