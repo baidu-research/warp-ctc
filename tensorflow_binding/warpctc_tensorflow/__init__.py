@@ -49,10 +49,3 @@ def _CTCLossGrad(op, grad_loss, _):
     grad = op.outputs[1]
     return [_BroadcastMul(grad_loss, grad), None, None, None]
 
-
-@ops.RegisterShape("WarpCTC")
-def _CTCLossShape(op):
-    inputs_shape = op.inputs[0].get_shape().with_rank(3)
-    batch_size = inputs_shape[1]
-    return [batch_size, inputs_shape]
-
