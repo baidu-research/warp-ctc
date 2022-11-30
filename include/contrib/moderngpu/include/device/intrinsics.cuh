@@ -150,7 +150,7 @@ MGPU_DEVICE int shfl_add(int x, int offset, int width = WARP_SIZE) {
 	asm(
 		"{.reg .s32 r0;"
 		".reg .pred p;"
-		"shfl.up.sync.b32 r0|p, %1, %2, %3, %4;"
+		"shfl.up.sync.b32 r0|p, %1, %2, %3, 0xFFFFFFFF;"
 		"@p add.s32 r0, r0, %4;"
 		"mov.s32 %0, r0; }"
 		: "=r"(result) : "r"(x), "r"(offset), "r"(mask), "r"(x));
@@ -175,7 +175,7 @@ MGPU_DEVICE int shfl_max(int x, int offset, int width = WARP_SIZE) {
 	asm(
 		"{.reg .s32 r0;"
 		".reg .pred p;"
-		"shfl.up.sync.b32 r0|p, %1, %2, %3, %4;"
+		"shfl.up.sync.b32 r0|p, %1, %2, %3, 0xFFFFFFFF;"
 		"@p max.s32 r0, r0, %4;"
 		"mov.s32 %0, r0; }"
 		: "=r"(result) : "r"(x), "r"(offset), "r"(mask), "r"(x));
