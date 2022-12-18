@@ -1,12 +1,14 @@
 IF (APPLE)
     cmake_minimum_required(VERSION 3.4)
 ELSE()
-    cmake_minimum_required(VERSION 2.8)
+    cmake_minimum_required(VERSION 3.10)
 ENDIF()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-project(ctc_release)
+project(ctc_release LANGUAGES CXX CUDA)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CUDA_STANDARD 11)
 
 include_directories(include)
 
@@ -53,7 +55,7 @@ else(WIN32)
 endif(WIN32)
 
 if(APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     add_definitions(-DAPPLE)
 endif()
 
@@ -103,7 +105,7 @@ IF ((CUDA_VERSION VERSION_GREATER "11.8") OR (CUDA_VERSION VERSION_EQUAL "11.8")
 ENDIF()
 
 IF(NOT APPLE AND NOT WIN32)
-    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --std=c++11")
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}")
     if(WITH_OMP)
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcompiler -fopenmp")
     endif()
@@ -160,7 +162,7 @@ IF (WITH_GPU OR WITH_ROCM)
         CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/.ctc_entrypoint.cu src/reduce.cu)
     else()
         IF (WITH_GPU)
-            CUDA_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
+            ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
         ELSE()
             HIP_ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cu src/reduce.cu)
             TARGET_LINK_LIBRARIES(warpctc PUBLIC ${ROCM_HIPRTC_LIB})
@@ -190,7 +192,7 @@ IF (WITH_GPU OR WITH_ROCM)
 
 
         TARGET_LINK_LIBRARIES(test_cpu warpctc)
-        SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
+        SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS}")
 
         IF (WITH_GPU)
             cuda_add_executable(test_gpu tests/test_gpu.cu)
@@ -234,7 +236,7 @@ ELSE()
     MESSAGE(STATUS "Building shared library with no GPU support")
 
     if (NOT APPLE AND NOT WIN32)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
     ENDIF()
 
     ADD_LIBRARY(warpctc ${WARPCTC_SHARED} src/ctc_entrypoint.cpp)
@@ -242,7 +244,7 @@ ELSE()
     if(BUILD_TESTS)
         add_executable(test_cpu tests/test_cpu.cpp )
         TARGET_LINK_LIBRARIES(test_cpu warpctc)
-        SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
+        SET_TARGET_PROPERTIES(test_cpu PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS}")
     endif(BUILD_TESTS)
 
     INSTALL(TARGETS warpctc
