@@ -5,8 +5,9 @@
 
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
-#include "tensorflow/core/kernels/bounds_check.h"
+#include "tensorflow/core/framework/bounds_check.h"
 #include "tensorflow/core/framework/allocator.h"
+#include "tensorflow/core/framework/shape_inference.h"
 #include "ctc.h"
 
 
@@ -17,7 +18,14 @@ REGISTER_OP("WarpCTC")
     .Input("input_lengths: int32")
     .Attr("blank_label: int = 0")
     .Output("costs: float32")
-    .Output("gradients: float32");
+    .Output("gradients: float32")
+    .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
+      ::tensorflow::shape_inference::ShapeHandle input;
+      TF_RETURN_IF_ERROR(c->WithRank(c->input(0), 3, &input));
+      c->set_output(0, c->Vector(c->Dim(input, 1)));
+      c->set_output(1, input);
+      return ::tensorflow::Status::OK();
+    });
 
 namespace tf = tensorflow;
 

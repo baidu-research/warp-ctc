@@ -4,7 +4,7 @@
 #endif
 
 #include "tensorflow/core/framework/op_kernel.h"
-#include "tensorflow/core/kernels/bounds_check.h"
+#include "tensorflow/core/framework/bounds_check.h"
 #include "tensorflow/core/util/sparse/sparse_tensor.h"
 
 #include "ctc.h"
