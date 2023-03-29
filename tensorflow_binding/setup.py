@@ -76,6 +76,8 @@ else:
 extra_compile_args = ['-std=c++11', '-fPIC', '-D_GLIBCXX_USE_CXX11_ABI=' + TF_CXX11_ABI]
 # current tensorflow code triggers return type errors, silence those for now
 extra_compile_args += ['-Wno-return-type']
+# The following is neccessary to compile with G++5 as Tensorflow uses the old ABI.
+extra_compile_args += [ '-D_GLIBCXX_USE_CXX11_ABI=0']
 
 extra_link_args = []
 if tf.__version__ >= '1.4':
