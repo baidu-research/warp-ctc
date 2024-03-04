@@ -18,10 +18,11 @@ class CpuCTC {
 public:
     // Noncopyable
     CpuCTC(int alphabet_size, int minibatch, void* workspace, int num_threads,
-           int blank_label) :
+           int blank_label, bool use_softmax, bool zero_infinity) :
             alphabet_size_(alphabet_size), minibatch_(minibatch),
             num_threads_(num_threads), workspace_(workspace),
-            blank_label_(blank_label) {
+            blank_label_(blank_label), use_softmax_(use_softmax),
+            zero_infinity_(zero_infinity) {
 #if defined(CTC_DISABLE_OMP) || defined(APPLE)
 #else
         if (num_threads > 0) {
@@ -75,8 +76,13 @@ private:
     int num_threads_;
     int blank_label_;
     void* workspace_;
+    bool use_softmax_;
+    bool zero_infinity_;
 
     void softmax(const ProbT* const activations, ProbT* probs,
+                 const int* const input_lengths);
+
+    void exp(const ProbT* const activations, ProbT* probs,
                  const int* const input_lengths);
 
     std::tuple<ProbT, bool>
@@ -181,12 +187,32 @@ CpuCTC<ProbT>::softmax(const ProbT* const activations, ProbT* probs,
 
             for(int r = 0; r < alphabet_size_; ++r) {
                 probs[r + col_offset] /= denom;
-                if (probs[r + col_offset] < min_T) {
-                    probs[r + col_offset] = min_T;
-                }
+                // if (probs[r + col_offset] < min_T) {
+                //     probs[r + col_offset] = min_T;
+                // }
             }
         }
     }
+}
+
+template<typename ProbT>
+void
+CpuCTC<ProbT>::exp(const ProbT* const activations, ProbT* probs,
+                       const int* const input_lengths) {
+        ProbT min_T = std::numeric_limits<ProbT>::min();
+
+#pragma omp parallel for
+        for (int mb = 0; mb < minibatch_; ++mb) {
+            for(int c = 0; c < input_lengths[mb]; ++c) {
+                int col_offset = (mb + minibatch_ * c) * alphabet_size_;
+                for(int r = 0; r < alphabet_size_; ++r) {
+                    probs[r + col_offset] = std::exp(activations[r + col_offset]);
+                    // if (probs[r + col_offset] < min_T) {
+                    //     probs[r + col_offset] = min_T;
+                    // }
+                }
+            }
+        }
 }
 
 template<typename ProbT>
@@ -417,7 +443,12 @@ CpuCTC<ProbT>::cost_and_grad(const ProbT* const activations,
     //labels w/blanks, e_inc, s_inc
     per_minibatch_bytes += 3 * sizeof(int) * maxS;
 
-    softmax(activations, probs, input_lengths);
+    if (use_softmax_) {
+        softmax(activations, probs, input_lengths);
+    } else {
+        // since the later computation use log probabilities, here we exp the probs first and then log it will lead to probs itself
+        exp(activations, probs, input_lengths);
+    }
 
 #pragma omp parallel for
     for (int mb = 0; mb < minibatch_; ++mb) {
@@ -432,6 +463,18 @@ CpuCTC<ProbT>::cost_and_grad(const ProbT* const activations,
                                      flat_labels + std::accumulate(label_lengths, label_lengths + mb, 0),
                                      T, L, mb,
                                      bytes_used + mb * per_minibatch_bytes);
+        if (zero_infinity_) {
+            if (costs[mb] == -ctc_helper::neg_inf<ProbT>()) {
+                for(int c = 0; c < input_lengths[mb]; ++c) {
+                    int col_offset = (mb + minibatch_ * c) * alphabet_size_;
+                    for(int r = 0; r < alphabet_size_; ++r) {
+                        grads[r + col_offset] = ProbT(0);
+                    }
+                }
+            costs[mb] = ProbT(0);
+            }
+        }
+        
     }
 
     return CTC_STATUS_SUCCESS;
@@ -475,7 +518,12 @@ ctcStatus_t CpuCTC<ProbT>::score_forward(const ProbT* const activations,
     //labels w/blanks, e_inc, s_inc
     per_minibatch_bytes += 3 * sizeof(int) * maxS;
 
-    softmax(activations, probs, input_lengths);
+    if (use_softmax_) {
+        softmax(activations, probs, input_lengths);
+    } else {
+        // since the later computation use log probabilities, here we exp the probs first and then log it will lead to probs itself
+        exp(activations, probs, input_lengths);
+    }
 
 #pragma omp parallel for
     for (int mb = 0; mb < minibatch_; ++mb) {
@@ -495,7 +543,11 @@ ctcStatus_t CpuCTC<ProbT>::score_forward(const ProbT* const activations,
                                         ctcm.e_inc, ctcm.s_inc, ctcm.labels_w_blanks,
                                         ctcm.alphas);
         }
-
+        if (zero_infinity_) {
+            if (costs[mb] == -ctc_helper::neg_inf<ProbT>()) {
+                costs[mb] = ProbT(0);
+            }
+        }
     }
 
     return CTC_STATUS_SUCCESS;

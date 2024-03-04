@@ -11,10 +11,13 @@ class GpuCTC {
                int minibatch,
                void *workspace,
                GPUstream stream,
-               int blank_label) :
+               int blank_label,
+               bool use_softmax,
+               bool zero_infinity) :
             out_dim_(alphabet_size), minibatch_(minibatch),
             gpu_workspace_(workspace), stream_(stream),
-            blank_label_(blank_label) {};
+            blank_label_(blank_label), use_softmax_(use_softmax),
+            zero_infinity_(zero_infinity)  {};
 
         // Noncopyable
         GpuCTC(const GpuCTC&) = delete;
@@ -77,6 +80,8 @@ class GpuCTC {
 
         int out_dim_; // Number of characters plus blank
         int minibatch_;
+        bool use_softmax_;
+        bool zero_infinity_;
 
         int S_;
         int T_;
@@ -437,7 +442,7 @@ GpuCTC<ProbT>::compute_probs(const ProbT* const activations) {
 
     prepare_stable_SM_kernel<ProbT, VT> <<< grid_size, NT, 0, stream_>>>
        (ctc_helper::identity<ProbT>(), probs_,
-        denoms_, out_dim_, num_elements);
+        denoms_, out_dim_, num_elements, use_softmax_);
 
     // Reduce along columns to calculate denominator
     ctc_status =
@@ -449,10 +454,10 @@ GpuCTC<ProbT>::compute_probs(const ProbT* const activations) {
     // Kernel launch to calculate probabilities
     compute_probs_kernel<ProbT, VT><<<grid_size, NT, 0, stream_>>>
         (ctc_helper::exponential<ProbT>(), probs_,
-         denoms_, out_dim_, num_elements);
+        denoms_, out_dim_, num_elements, use_softmax_);
 
-    truncate_probs_kernel<ProbT, VT><<<grid_size, NT, 0, stream_>>>
-        (probs_, num_elements);
+    // truncate_probs_kernel<ProbT, VT><<<grid_size, NT, 0, stream_>>>
+    //     (probs_, num_elements);
 
     return CTC_STATUS_SUCCESS;
 }
@@ -494,7 +499,24 @@ GpuCTC<ProbT>::compute_cost_and_score(const ProbT* const activations,
                                       sizeof(ProbT) * minibatch_,
                                       cudaMemcpyDeviceToHost, stream_);
 #endif
-       
+
+    if (zero_infinity_){
+        // zero infinity cost and associated grads
+        const int NT = 128;
+        const int VT = 1;
+        const int NV = NT * VT;
+        for (int mb = 0; mb < minibatch_; ++mb) {
+            if (costs[mb] == -ctc_helper::neg_inf<ProbT>()) {
+                int loc_T = input_lengths[mb];
+                int num_elements = out_dim_ * loc_T;
+                int grid_size = ctc_helper::div_up(num_elements, NV);
+                zero_infinity_kernel<ProbT, VT><<<grid_size, NT, 0, stream_>>>
+                    (grads, mb, out_dim_, minibatch_, num_elements);
+                costs[mb] = ProbT(0);
+            }
+        }
+    }
+
 #ifdef __HIPCC__
     cuda_status_sync = hipStreamSynchronize(stream_);
 #else

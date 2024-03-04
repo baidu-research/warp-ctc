@@ -59,7 +59,7 @@ ctcStatus_t compute_ctc_loss(const float* const activations,
 
     if (options.loc == CTC_CPU) {
         CpuCTC<float> ctc(alphabet_size, minibatch, workspace, options.num_threads,
-                          options.blank_label);
+                          options.blank_label, options.use_softmax, options.zero_infinity);
 
         if (gradients != NULL)
             return ctc.cost_and_grad(activations, gradients,
@@ -72,7 +72,7 @@ ctcStatus_t compute_ctc_loss(const float* const activations,
     } else if (options.loc == CTC_GPU) {
 #if (defined(__HIPCC__) || defined(__CUDACC__))
         GpuCTC<float> ctc(alphabet_size, minibatch, workspace, options.stream,
-                          options.blank_label);
+                          options.blank_label, options.use_softmax, options.zero_infinity);
 
         if (gradients != NULL)
             return ctc.cost_and_grad(activations, gradients, costs,
@@ -112,7 +112,7 @@ ctcStatus_t compute_ctc_loss_double(const double* const activations,
 
     if (options.loc == CTC_CPU) {
         CpuCTC<double> ctc(alphabet_size, minibatch, workspace, options.num_threads,
-                          options.blank_label);
+                          options.blank_label, options.use_softmax, options.zero_infinity);
 
         if (gradients != NULL)
             return ctc.cost_and_grad(activations, gradients,
@@ -125,7 +125,7 @@ ctcStatus_t compute_ctc_loss_double(const double* const activations,
     } else if (options.loc == CTC_GPU) {
 #if (defined(__HIPCC__) || defined(__CUDACC__))
         GpuCTC<double> ctc(alphabet_size, minibatch, workspace, options.stream,
-                          options.blank_label);
+                          options.blank_label, options.use_softmax, options.zero_infinity);
 
         if (gradients != NULL)
             return ctc.cost_and_grad(activations, gradients, costs,

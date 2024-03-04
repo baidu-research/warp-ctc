@@ -663,6 +663,327 @@ bool run_tests() {
     return status;
 }
 
+bool use_softmax_test() {
+    const int alphabet_size = 4;
+    const int T = 2;
+    const int minibatch = 2;
+
+    std::vector<float> activations = 
+        {0.633766f, 0.221185f, 0.0917319f, 0.0129757f,
+         0.30176f, 0.28562f, 0.0831517f, 0.0862751f,
+                                      
+         0.111121f, 0.588392f, 0.278779f, 0.0055756f,
+         0.24082f, 0.397533f, 0.0557226f, 0.0546814f};
+
+    std::vector<float> expected_grads = // from tensorflow
+        {1.884695f, 0.247554f, 1.096071f, 1.013060f,
+         1.352237f, 1.330587f, 0.086707f, 1.090106f,
+
+         1.117530f, 1.801090f, 0.321515f, 1.005591f,
+         1.272292f, 0.488149f, 1.057304f, 1.056204f};
+
+    std::vector<double> expected_scores(2);
+    auto& a = activations;
+    expected_scores[0] = -0.499964f; // from tensorflow
+    expected_scores[1] = -0.480685f; // from tensorflow
+
+#ifdef __HIPCC__
+    hipStream_t stream;
+    throw_on_error(hipStreamCreate(&stream),
+                   "hipStreamCreate");
+#else
+    cudaStream_t stream;
+    throw_on_error(cudaStreamCreate(&stream),
+                   "cudaStreamCreate");
+#endif
+
+    float *activations_gpu;
+
+#ifdef __HIPCC__
+    throw_on_error(hipMalloc(&activations_gpu,
+                   activations.size() * sizeof(float)),
+                   "hipMalloc");
+    throw_on_error(hipMemcpyAsync(activations_gpu, activations.data(),
+                                   activations.size() * sizeof(float),
+                                   hipMemcpyHostToDevice, stream),
+                   "hipMemcpyAsync");
+#else
+    throw_on_error(cudaMalloc(&activations_gpu,
+                   activations.size() * sizeof(float)),
+                   "cudaMalloc");
+    throw_on_error(cudaMemcpyAsync(activations_gpu, activations.data(),
+                                   activations.size() * sizeof(float),
+                                   cudaMemcpyHostToDevice, stream),
+                   "cudaMemcpyAsync");
+#endif
+
+    std::vector<int> labels = {1, 2, 2, 1};
+    std::vector<int> label_lengths = {2, 2};
+
+    std::vector<int> lengths = {2, 2};
+    std::vector<float> costs(minibatch);
+    float *grads_gpu;
+
+#ifdef __HIPCC__
+    throw_on_error(hipMalloc(&grads_gpu, (alphabet_size * T * minibatch) * sizeof(float)),
+                   "hipMalloc");
+#else
+    throw_on_error(cudaMalloc(&grads_gpu, (alphabet_size * T * minibatch) * sizeof(float)),
+                   "cudaMalloc");
+#endif
+
+    ctcOptions options{};
+    options.loc = CTC_GPU;
+    options.stream = stream;
+    options.use_softmax = false;
+
+    size_t gpu_alloc_bytes;
+    throw_on_error(get_workspace_size(label_lengths.data(), lengths.data(),
+                                      alphabet_size, lengths.size(), options,
+                                      &gpu_alloc_bytes),
+                   "Error: get_workspace_size in small_test");
+
+    char *ctc_gpu_workspace;
+
+#ifdef __HIPCC__
+    throw_on_error(hipMalloc(&ctc_gpu_workspace, gpu_alloc_bytes),
+                   "hipMalloc");
+
+#else
+    throw_on_error(cudaMalloc(&ctc_gpu_workspace, gpu_alloc_bytes),
+                   "cudaMalloc");
+#endif
+
+    throw_on_error(compute_ctc_loss(activations_gpu, grads_gpu,
+                                    labels.data(), label_lengths.data(),
+                                    lengths.data(),
+                                    alphabet_size,
+                                    lengths.size(),
+                                    costs.data(),
+                                    ctc_gpu_workspace,
+                                    options),
+                   "Error: compute_ctc_loss in small_test");
+
+    std::vector<float> grads(alphabet_size * T * minibatch);
+
+#ifdef __HIPCC__
+    throw_on_error(hipMemcpyAsync(grads.data(), grads_gpu,
+                                   grads.size() * sizeof(float),
+                                   hipMemcpyDeviceToHost, stream),
+                   "hipMemcpyAsync");
+    throw_on_error(hipStreamSynchronize(stream), "hipStreamSynchronize");
+
+    throw_on_error(hipFree(activations_gpu),
+                   "hipFree");
+    throw_on_error(hipFree(ctc_gpu_workspace),
+                   "hipFree");
+    throw_on_error(hipStreamDestroy(stream),
+                   "hipStreamDestroy");
+#else
+    throw_on_error(cudaMemcpyAsync(grads.data(), grads_gpu,
+                                   grads.size() * sizeof(float),
+                                   cudaMemcpyDeviceToHost, stream),
+                   "cudaMemcpyAsync");
+    throw_on_error(cudaStreamSynchronize(stream), "cudaStreamSynchronize");
+
+    throw_on_error(cudaFree(activations_gpu),
+                   "cudaFree");
+    throw_on_error(cudaFree(ctc_gpu_workspace),
+                   "cudaFree");
+    throw_on_error(cudaStreamDestroy(stream),
+                   "cudaStreamDestroy");
+#endif
+    const double eps = 1e-4;
+
+    bool result = true;
+    for (int i = 0; i < grads.size(); i++) {
+        const double lb = expected_grads[i] - eps;
+        const double ub = expected_grads[i] + eps;
+        if (!(grads[i] > lb && grads[i] < ub)) {
+            std::cerr << "grad mismatch in use_softmax_test"
+                    << " expected grad: " << expected_grads[i]
+                    << " calculated score: " << grads[i]
+                    << " !(" << lb << " < " << grads[i]
+                    << " < " << ub << ")" << std::endl;
+            result = false;
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        const double lb = expected_scores[i] - eps;
+        const double ub = expected_scores[i] + eps;
+
+        if (!(costs[i] > lb && costs[i] < ub)) {
+            std::cerr << "score mismatch in use_softmax_test"
+                    << " expected score: " << expected_scores[i]
+                    << " calculated score: " << costs[i] << std::endl;
+            result = false;
+        }
+    }
+    return result;
+}
+
+bool zero_infinity_test() {
+    const int alphabet_size = 4;
+    const int T = 2;
+    const int minibatch = 2;
+
+    std::vector<float> activations = 
+        {0.633766f, 0.221185f, 0.0917319f, 0.0129757f,
+         0.30176f, -1e30, 0.0831517f, 0.0862751f,
+                                     
+         0.111121f, 0.588392f, 0.278779f, 0.0055756f,
+         0.24082f, -1e30, 0.0557226f, 0.0546814f};
+
+    std::vector<float> expected_grads = // from tensorflow
+        {1.884695f, 0.247554f, 1.096071f, 1.013060f,
+         0.0f, 0.0f, 0.0f, 0.0f,
+
+         1.117530f, 1.801090f, 0.321515f, 1.005591f,
+         0.0f, 0.0f, 0.0f, 0.0f};
+
+    std::vector<double> expected_scores(2);
+    auto& a = activations;
+    expected_scores[0] = -0.5f; // from tensorflow
+    expected_scores[1] = 0.0f;
+
+#ifdef __HIPCC__
+    hipStream_t stream;
+    throw_on_error(hipStreamCreate(&stream),
+                   "hipStreamCreate");
+#else
+    cudaStream_t stream;
+    throw_on_error(cudaStreamCreate(&stream),
+                   "cudaStreamCreate");
+#endif
+
+    float *activations_gpu;
+
+#ifdef __HIPCC__
+    throw_on_error(hipMalloc(&activations_gpu,
+                   activations.size() * sizeof(float)),
+                   "hipMalloc");
+    throw_on_error(hipMemcpyAsync(activations_gpu, activations.data(),
+                                   activations.size() * sizeof(float),
+                                   hipMemcpyHostToDevice, stream),
+                   "hipMemcpyAsync");
+#else
+    throw_on_error(cudaMalloc(&activations_gpu,
+                   activations.size() * sizeof(float)),
+                   "cudaMalloc");
+    throw_on_error(cudaMemcpyAsync(activations_gpu, activations.data(),
+                                   activations.size() * sizeof(float),
+                                   cudaMemcpyHostToDevice, stream),
+                   "cudaMemcpyAsync");
+#endif
+
+    std::vector<int> labels = {1, 2, 2, 1};
+    std::vector<int> label_lengths = {2, 2};
+
+    std::vector<int> lengths = {2, 2};
+    std::vector<float> costs(minibatch);
+    float *grads_gpu;
+
+#ifdef __HIPCC__
+    throw_on_error(hipMalloc(&grads_gpu, (alphabet_size * T * minibatch) * sizeof(float)),
+                   "hipMalloc");
+#else
+    throw_on_error(cudaMalloc(&grads_gpu, (alphabet_size * T * minibatch) * sizeof(float)),
+                   "cudaMalloc");
+#endif
+
+    ctcOptions options{};
+    options.loc = CTC_GPU;
+    options.stream = stream;
+    options.use_softmax = false;
+    options.zero_infinity = true;
+
+    size_t gpu_alloc_bytes;
+    throw_on_error(get_workspace_size(label_lengths.data(), lengths.data(),
+                                      alphabet_size, lengths.size(), options,
+                                      &gpu_alloc_bytes),
+                   "Error: get_workspace_size in small_test");
+
+    char *ctc_gpu_workspace;
+
+#ifdef __HIPCC__
+    throw_on_error(hipMalloc(&ctc_gpu_workspace, gpu_alloc_bytes),
+                   "hipMalloc");
+
+#else
+    throw_on_error(cudaMalloc(&ctc_gpu_workspace, gpu_alloc_bytes),
+                   "cudaMalloc");
+#endif
+
+    throw_on_error(compute_ctc_loss(activations_gpu, grads_gpu,
+                                    labels.data(), label_lengths.data(),
+                                    lengths.data(),
+                                    alphabet_size,
+                                    lengths.size(),
+                                    costs.data(),
+                                    ctc_gpu_workspace,
+                                    options),
+                   "Error: compute_ctc_loss in small_test");
+
+    std::vector<float> grads(alphabet_size * T * minibatch);
+
+#ifdef __HIPCC__
+    throw_on_error(hipMemcpyAsync(grads.data(), grads_gpu,
+                                   grads.size() * sizeof(float),
+                                   hipMemcpyDeviceToHost, stream),
+                   "hipMemcpyAsync");
+    throw_on_error(hipStreamSynchronize(stream), "hipStreamSynchronize");
+
+    throw_on_error(hipFree(activations_gpu),
+                   "hipFree");
+    throw_on_error(hipFree(ctc_gpu_workspace),
+                   "hipFree");
+    throw_on_error(hipStreamDestroy(stream),
+                   "hipStreamDestroy");
+#else
+    throw_on_error(cudaMemcpyAsync(grads.data(), grads_gpu,
+                                   grads.size() * sizeof(float),
+                                   cudaMemcpyDeviceToHost, stream),
+                   "cudaMemcpyAsync");
+    throw_on_error(cudaStreamSynchronize(stream), "cudaStreamSynchronize");
+
+    throw_on_error(cudaFree(activations_gpu),
+                   "cudaFree");
+    throw_on_error(cudaFree(ctc_gpu_workspace),
+                   "cudaFree");
+    throw_on_error(cudaStreamDestroy(stream),
+                   "cudaStreamDestroy");
+#endif
+    const double eps = 1e-4;
+
+    bool result = true;
+    for (int i = 0; i < grads.size(); i++) {
+        const double lb = expected_grads[i] - eps;
+        const double ub = expected_grads[i] + eps;
+        if (!(grads[i] > lb && grads[i] < ub)) {
+            std::cerr << "grad mismatch in zero_infinity_test"
+                    << " expected grad: " << expected_grads[i]
+                    << " calculated score: " << grads[i]
+                    << " !(" << lb << " < " << grads[i]
+                    << " < " << ub << ")" << std::endl;
+            result = false;
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        const double lb = expected_scores[i] - eps;
+        const double ub = expected_scores[i] + eps;
+
+        if (!(costs[i] > lb && costs[i] < ub)) {
+            std::cerr << "score mismatch in zero_infinity_test"
+                    << " expected score: " << expected_scores[i]
+                    << " calculated score: " << costs[i] << std::endl;
+            result = false;
+        }
+    }
+    return result;
+}
+
 int main(void) {
     if (get_warpctc_version() != 2) {
         std::cerr << "Invalid WarpCTC version." << std::endl;
@@ -682,6 +1003,8 @@ int main(void) {
     status &= options_test();
     status &= inf_test();
     status &= run_tests();
+    status &= use_softmax_test();
+    status &= zero_infinity_test();
 
     if (status) {
         std::cout << "Tests pass" << std::endl;

@@ -455,18 +455,30 @@ template <typename ProbT, int VT = 1, typename Op>
 __global__ void compute_probs_kernel(Op f, ProbT* probs,
                                      const ProbT* const denom,
                                      int alphabet_size,
-                                     int count) {
+                                     int count,
+                                     bool use_softmax) {
 
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
+    if (use_softmax) {
 #pragma unroll
-    for(int i = 0; i < VT; i++) {
-        if (idx < count) {
-            const int column_idx = idx / alphabet_size;
-            probs[idx] = f(probs[idx]) / denom[column_idx];
+        for(int i = 0; i < VT; i++) {
+            if (idx < count) {
+                const int column_idx = idx / alphabet_size;
+                probs[idx] = f(probs[idx]) / denom[column_idx];
+            }
+            idx += stride;
         }
-        idx += stride;
+    } else {
+#pragma unroll
+        for(int i = 0; i < VT; i++) {
+            if (idx < count) {
+                probs[idx] = f(probs[idx]);
+            }
+            idx += stride;
+        }
     }
+
 }
 
 template <typename ProbT, int VT = 1>
@@ -490,16 +502,42 @@ template <typename ProbT, int VT = 1, typename Op>
 __global__ void prepare_stable_SM_kernel(Op f, ProbT* probs,
                                          const ProbT* const col_max,
                                          int alphabet_size,
-                                         int count) {
+                                         int count,
+                                         bool use_softmax) {
 
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
+
+    if (use_softmax) {
 #pragma unroll
+        for(int i = 0; i < VT; i++) {
+            if (idx < count) {
+                const int column_idx = idx / alphabet_size;
+                probs[idx] = f(probs[idx] - col_max[column_idx]);
+            }
+            idx += stride;
+        }
+    }
+}
+
+template <typename ProbT, int VT = 1>
+__global__ void zero_infinity_kernel(ProbT* grads,
+                                     int mb,
+                                     int alphabet_size,
+                                     int minibatch,
+                                     int count) {
+
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    int col = 0;
+    int row = 0;
+# pragma unroll 
     for(int i = 0; i < VT; i++) {
         if (idx < count) {
-            const int column_idx = idx / alphabet_size;
-            probs[idx] = f(probs[idx] - col_max[column_idx]);
-        }
-        idx += stride;
+                col = idx / alphabet_size;
+                row = idx % alphabet_size;
+                grads[(col * minibatch + mb) * alphabet_size + row] = ProbT(0);
+            }
+            idx += stride;
     }
 }
