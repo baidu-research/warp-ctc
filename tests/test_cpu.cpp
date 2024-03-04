@@ -365,6 +365,182 @@ bool run_tests() {
     return status;
 }
 
+bool use_softmax_test() {
+    const int alphabet_size = 4;
+    const int T = 2;
+    const int minibatch = 2;
+
+    std::vector<float> activations = 
+        {0.633766f, 0.221185f, 0.0917319f, 0.0129757f,
+         0.30176f, 0.28562f, 0.0831517f, 0.0862751f,
+                                      
+         0.111121f, 0.588392f, 0.278779f, 0.0055756f,
+         0.24082f, 0.397533f, 0.0557226f, 0.0546814f};
+
+    std::vector<float> expected_grads = // from tensorflow
+        {1.884695f, 0.247554f, 1.096071f, 1.013060f,
+         1.352237f, 1.330587f, 0.086707f, 1.090106f,
+
+         1.117530f, 1.801090f, 0.321515f, 1.005591f,
+         1.272292f, 0.488149f, 1.057304f, 1.056204f};
+
+    // Calculate the expected scores analytically
+    std::vector<double> expected_scores(2);
+    auto& a = activations;
+    expected_scores[0] = -0.499964f; // from tensorflow
+    expected_scores[1] = -0.480685f; // from tensorflow
+
+    std::vector<int> labels = {1, 2, 2, 1};
+    std::vector<int> label_lengths = {2, 2};
+
+    std::vector<int> lengths = {2, 2};
+    std::vector<float> grads(alphabet_size * T * minibatch);
+    std::vector<float> scores(2);
+
+    ctcOptions options{};
+    options.loc = CTC_CPU;
+    options.num_threads = 1;
+    options.use_softmax = false;
+
+    size_t cpu_alloc_bytes;
+    throw_on_error(get_workspace_size(label_lengths.data(), lengths.data(),
+                                      alphabet_size, lengths.size(), options,
+                                      &cpu_alloc_bytes),
+                   "Error: get_workspace_size in small_test");
+
+    void* ctc_cpu_workspace = malloc(cpu_alloc_bytes);
+
+    throw_on_error(compute_ctc_loss(activations.data(), grads.data(),
+                                    labels.data(), label_lengths.data(),
+                                    lengths.data(),
+                                    alphabet_size,
+                                    lengths.size(),
+                                    scores.data(),
+                                    ctc_cpu_workspace,
+                                    options),
+                   "Error: compute_ctc_loss in small_test");
+
+    free(ctc_cpu_workspace);
+    
+    const double eps = 1e-4;
+
+    bool result = true;
+    for (int i = 0; i < grads.size(); i++) {
+        const double lb = expected_grads[i] - eps;
+        const double ub = expected_grads[i] + eps;
+        if (!(grads[i] > lb && grads[i] < ub)) {
+            std::cerr << "grad mismatch in use_softmax_test"
+                      << " expected grad: " << expected_grads[i]
+                      << " calculated score: " << grads[i]
+                      << " !(" << lb << " < " << grads[i]
+                      << " < " << ub << ")" << std::endl;
+            result = false;
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        const double lb = expected_scores[i] - eps;
+        const double ub = expected_scores[i] + eps;
+        if (!(scores[i] > lb && scores[i] < ub)) {
+            std::cerr << "score mismatch in use_softmax_options_test"
+                      << " expected score: " << expected_scores[i]
+                      << " calculated score: " << scores[i]
+                      << " !(" << lb << " < " << scores[i]
+                      << " < " << ub << ")" << std::endl;
+            result = false;
+        }
+    }
+    return result;
+}
+
+bool zero_infinity_test() {
+    const int alphabet_size = 4;
+    const int T = 2;
+    const int minibatch = 2;
+
+    std::vector<float> activations = 
+        {0.633766f, 0.221185f, 0.0917319f, 0.0129757f,
+         0.30176f, -1e30, 0.0831517f, 0.0862751f,
+                                      
+         0.111121f, 0.588392f, 0.278779f, 0.0055756f,
+         0.24082f, -1e30, 0.0557226f, 0.0546814f};
+
+    std::vector<float> expected_grads = // from tensorflow
+        {1.884695f, 0.247554f, 1.096071f, 1.013060f,
+         0.0f, 0.0f, 0.0f, 0.0f,
+
+         1.117530f, 1.801090f, 0.321515f, 1.005591f,
+         0.0f, 0.0f, 0.0f, 0.0f};
+
+    std::vector<double> expected_scores(2);
+    auto& a = activations;
+    expected_scores[0] = -0.5f; // from tensorflow
+    expected_scores[1] = 0.0f;
+
+    std::vector<int> labels = {1, 2, 2, 1};
+    std::vector<int> label_lengths = {2, 2};
+
+    std::vector<int> lengths = {2, 2};
+    std::vector<float> grads(alphabet_size * T * minibatch);
+    std::vector<float> scores(2);
+
+    ctcOptions options{};
+    options.loc = CTC_CPU;
+    options.num_threads = 1;
+    options.use_softmax = false;
+    options.zero_infinity = true;
+
+    size_t cpu_alloc_bytes;
+    throw_on_error(get_workspace_size(label_lengths.data(), lengths.data(),
+                                      alphabet_size, lengths.size(), options,
+                                      &cpu_alloc_bytes),
+                   "Error: get_workspace_size in small_test");
+
+    void* ctc_cpu_workspace = malloc(cpu_alloc_bytes);
+
+    throw_on_error(compute_ctc_loss(activations.data(), grads.data(),
+                                    labels.data(), label_lengths.data(),
+                                    lengths.data(),
+                                    alphabet_size,
+                                    lengths.size(),
+                                    scores.data(),
+                                    ctc_cpu_workspace,
+                                    options),
+                   "Error: compute_ctc_loss in small_test");
+
+    free(ctc_cpu_workspace);
+    
+    const double eps = 1e-4;
+
+    bool result = true;
+    for (int i = 0; i < grads.size(); i++) {
+        const double lb = expected_grads[i] - eps;
+        const double ub = expected_grads[i] + eps;
+        if (!(grads[i] > lb && grads[i] < ub)) {
+            std::cerr << "grad mismatch in zero_infinity_test"
+                      << " expected grad: " << expected_grads[i]
+                      << " calculated score: " << grads[i]
+                      << " !(" << lb << " < " << grads[i]
+                      << " < " << ub << ")" << std::endl;
+            result = false;
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        const double lb = expected_scores[i] - eps;
+        const double ub = expected_scores[i] + eps;
+        if (!(scores[i] > lb && scores[i] < ub)) {
+            std::cerr << "score mismatch in zero_infinity_test"
+                      << " expected score: " << expected_scores[i]
+                      << " calculated score: " << scores[i]
+                      << " !(" << lb << " < " << scores[i]
+                      << " < " << ub << ")" << std::endl;
+            result = false;
+        }
+    }
+    return result;
+}
+
 int main(void) {
     if (get_warpctc_version() != 2) {
         std::cerr << "Invalid WarpCTC version." << std::endl;
@@ -378,6 +554,8 @@ int main(void) {
     status &= options_test();
     status &= inf_test();
     status &= run_tests();
+    status &= use_softmax_test();
+    status &= zero_infinity_test();
 
     if (status) {
         std::cout << "Tests pass" << std::endl;

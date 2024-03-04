@@ -70,6 +70,12 @@ struct ctcOptions {
 
     /// the label value/index that the CTC calculation should use as the blank label
     int blank_label;
+
+    /// indicate whether to apply softmax on the input first.
+    bool use_softmax = true;
+
+    /// indicate whether to zero infinite losses and the associated gradients.
+    bool zero_infinity = false;
 };
 
 /** Compute the connectionist temporal classification loss between 
